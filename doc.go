@@ -9,13 +9,15 @@
 //     and failed as the same kind of error, so both exit 1. [Execute]
 //     classifies the first as [ErrUsage] and the caller selects 2.
 //   - Alternatives. Cobra names the token it rejected and stops, without the
-//     flags it had just consulted. [Execute] appends the near matches.
+//     flags it had just consulted. [Execute] appends the near matches. A
+//     namespace that refuses an unknown word itself returns [UnknownCommand],
+//     which carries the near subcommands.
 //   - The next command. Cobra prints "Run '... --help' for usage" only where
 //     the resolved command has not silenced its own error output, which is a
 //     field set for unrelated reasons. [Execute] puts it in the error, so
 //     every tool prints it exactly once.
 //   - Recovery from a missing resource. A tool that cannot list its corpus can
-//     still name the command that searches it. [WithNotFoundHints] records
+//     still name the command that searches it. [WithRecoveryHints] records
 //     those commands and [Execute] attaches them, with the tool supplying a
 //     [NotFoundFunc] to say what a not-found looks like.
 //
@@ -41,13 +43,18 @@
 //		}
 //	}
 //
-// Nothing else in a consuming CLI imports this package. That is deliberate and
-// it is the constraint every feature here is designed against: a tool that
-// wants to answer a mistake its own way deletes two lines, and everything it
-// wrote itself still compiles. A feature reaching out to call sites — an
-// annotation helper spread across twenty files, a wrapper each command has to
-// remember — would trade that away, so [WithNotFoundHints] is offered for
-// convenience and never required. A CLI may write the annotation itself.
+// Nothing else in a consuming CLI needs this package. That is deliberate and it
+// is the constraint every feature here is designed against: a tool that wants
+// to answer a mistake its own way deletes two lines, and everything it wrote
+// itself still compiles. A feature reaching out to call sites — an annotation
+// helper spread across twenty files, a wrapper each command has to remember —
+// would trade that away, so [WithRecoveryHints] is offered for convenience and
+// never required. A CLI may write the annotation itself.
+//
+// The error constructors, [UsageError] and [UnknownCommand], are the exception
+// by design. Each is a value a command returns rather than a registration or a
+// wrapper, and each carries something only the command knows: that its own
+// check refused the line, and that the word it refused names no subcommand.
 //
 // [cobra]: https://github.com/spf13/cobra
 package goclikit
