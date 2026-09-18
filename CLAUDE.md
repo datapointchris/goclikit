@@ -38,6 +38,15 @@ paper, and it is the property a feature is checked against before it is added:
 - A feature that would require a wrapper around each command, or an ordering
   the caller has to get right, is the wrong shape. Say so rather than
   documenting the ordering.
+- **An error constructor is the one exception.** `UsageError` and
+  `UnknownCommand` are values a command returns, and each carries a fact only
+  the command has: that its own check refused the line, and that the word it
+  refused names no subcommand. Inferring either in `Execute` from the error's
+  presence was tried and measured wrong — a flag mistake and an argument-count
+  failure on the same line read as an unknown word, and a consumer marking
+  usage errors with its own type was never reached at all. Dropping the
+  package then means replacing the constructors with plain errors, which is a
+  mechanical edit, not a redesign.
 
 **Why**: eleven CLIs depend on this. If dropping it means editing twenty files
 in each of them, the dependency has stopped being a choice, and a library

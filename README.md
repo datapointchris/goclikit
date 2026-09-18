@@ -78,9 +78,36 @@ Run 'tool search --help' for usage.
 
 Suggestions come from cobra's own rule for commands: within
 `SuggestionsMinimumDistance` edits of a real flag, or a prefix of one, and off
-entirely under `DisableSuggestions`. One rule then answers a mistyped flag and
-a mistyped command on the same line. Near matches rather than the whole flag
-set, so a wide flag surface does not answer one typo with a wall.
+entirely under `DisableSuggestions`. Both fields are read up the ancestry, so
+setting them on the root, where cobra reads them, reaches every command. One
+rule then answers a mistyped flag and a mistyped command on the same line. Near
+matches rather than the whole flag set, so a wide flag surface does not answer
+one typo with a wall.
+
+Cobra's unknown-command suggestion comes only from its root validator, which
+runs where the root declares no `Args`. A tool whose namespaces validate their
+own arguments, so that a bare one shows help and an unknown word exits 2, says
+the word is unknown itself. `UnknownCommand` is that refusal, carrying the near
+subcommands by the same rule and the pointer:
+
+```go
+RunE: func(cmd *cobra.Command, args []string) error {
+    if len(args) == 0 {
+        return cmd.Help()
+    }
+    return goclikit.UnknownCommand(cmd, args[0])
+},
+```
+
+```text
+$ tool admin uodate
+error: unknown command "uodate" for "tool admin"
+
+Did you mean this?
+  update
+
+Run 'tool admin --help' for usage.
+```
 
 The prose is a suffix on the error, so `errors.Is` and `errors.As` still reach
 whatever cobra, pflag or a caller's own `FlagErrorFunc` produced.
@@ -167,6 +194,11 @@ cmd.Annotations = map[string]string{
     goclikit.RecoveryHintsAnnotation: strings.Join(hints, "\n"),
 }
 ```
+
+The error constructors, `UsageError` and `UnknownCommand`, are the exception.
+Each is a value a command returns rather than a wrapper it has to remember, and
+each carries a fact only the command has. Dropping the package means replacing
+them with plain errors.
 
 ## Design decisions
 

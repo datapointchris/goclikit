@@ -3,6 +3,7 @@ package goclikit
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -86,21 +87,106 @@ func explainCommandError(cmd *cobra.Command, err error) error {
 	return explained{err: err, extra: "\n\n" + helpPointer(cmd)}
 }
 
+// UnknownCommand is the error for a word that names none of cmd's subcommands:
+// the word, the subcommands near it, and the command that lists every one,
+// marked [ErrUsage].
+//
+// Cobra's unknown-command suggestion comes only from its root validator, which
+// runs where the root declares no Args. A namespace that validates its own
+// arguments, so that bare shows help and an unknown word exits 2, has to say
+// the word is unknown itself. This is that sentence with the alternatives and
+// the pointer in it, worded the way cobra words both.
+//
+//	RunE: func(cmd *cobra.Command, args []string) error {
+//		if len(args) == 0 {
+//			return cmd.Help()
+//		}
+//		return goclikit.UnknownCommand(cmd, args[0])
+//	},
+//
+// The alternatives are in the error rather than added by [Execute] afterwards,
+// because only the namespace knows the word was refused for naming nothing.
+// Read off the error's presence instead, a flag mistake or an argument-count
+// failure on the same line would be answered as a command it never was.
+func UnknownCommand(cmd *cobra.Command, word string) error {
+	refused := fmt.Errorf("unknown command %q for %q", word, cmd.CommandPath())
+	sections := make([]string, 0, 2)
+	if names := commandSuggestions(cmd, word); len(names) > 0 {
+		sections = append(sections, suggestionBlock(names))
+	}
+	sections = append(sections, helpPointer(cmd))
+	return usageError{explained{err: refused, extra: "\n\n" + strings.Join(sections, "\n\n")}}
+}
+
+// commandSuggestions names the subcommands of cmd near typed, and any whose
+// SuggestFor lists it, which is cobra's rule for commands.
+//
+// Not [cobra.Command.SuggestionsFor], which reads the distance off cmd itself.
+// A consumer sets it on the root, where cobra reads it, so on a namespace it is
+// zero and would offer only prefixes.
+func commandSuggestions(cmd *cobra.Command, typed string) []string {
+	distance, on := suggestionDistance(cmd)
+	if !on {
+		return nil
+	}
+	var names []string
+	for _, sub := range cmd.Commands() {
+		if !sub.IsAvailableCommand() {
+			continue
+		}
+		named := slices.ContainsFunc(sub.SuggestFor, func(word string) bool { return strings.EqualFold(word, typed) })
+		if near(typed, sub.Name(), distance) || named {
+			names = append(names, sub.Name())
+		}
+	}
+	return names
+}
+
+// suggestionDistance is how many edits a typed word may sit from a name and
+// still be offered, and false where suggestions are off.
+//
+// Read up the ancestry, because cobra reads both fields on the root and a
+// consumer sets them there. Suggestions are off when any command from cmd to
+// the root turns them off, and the distance is the nearest one set, or cobra's
+// default of two.
+func suggestionDistance(cmd *cobra.Command) (int, bool) {
+	distance := 0
+	for current := cmd; current != nil; current = current.Parent() {
+		if current.DisableSuggestions {
+			return 0, false
+		}
+		if distance == 0 && current.SuggestionsMinimumDistance > 0 {
+			distance = current.SuggestionsMinimumDistance
+		}
+	}
+	if distance == 0 {
+		distance = 2
+	}
+	return distance, true
+}
+
+// near reports whether typed is close enough to name to offer it: within
+// distance edits, or a prefix of it. It is the one rule both halves of a
+// mistyped command line are answered by here.
+func near(typed, name string, distance int) bool {
+	return editDistance(typed, name) <= distance || strings.HasPrefix(strings.ToLower(name), strings.ToLower(typed))
+}
+
 // flagSuggestions names the flags on cmd close enough to what was typed to be
 // worth offering.
 //
-// The rule is cobra's own for commands, applied to flags: within
-// SuggestionsMinimumDistance edits of a real flag, or a prefix of one. Reusing
-// it is what keeps a tool from answering a mistyped command and a mistyped flag
-// by two different standards on one command line, and it respects the
-// DisableSuggestions and SuggestionsMinimumDistance a consumer already set.
+// The rule is cobra's own for commands, applied to flags, so a tool answers a
+// mistyped command and a mistyped flag on one command line by one standard. It
+// honors the DisableSuggestions and SuggestionsMinimumDistance a consumer set,
+// wherever in the ancestry it set them.
 //
 // Near matches rather than the whole flag set, which is also what Click does:
 // measured 2026-08-11, `indy search --nope` named one of its seven flags. A
 // command with a wide flag surface would otherwise answer a typo with a wall,
 // and the pointer above already names the command that prints all of them.
 func flagSuggestions(cmd *cobra.Command, err error) []string {
-	if cmd.DisableSuggestions {
+	distance, on := suggestionDistance(cmd)
+	if !on {
 		return nil
 	}
 
@@ -120,19 +206,12 @@ func flagSuggestions(cmd *cobra.Command, err error) []string {
 		return nil
 	}
 
-	distance := cmd.SuggestionsMinimumDistance
-	if distance <= 0 {
-		distance = 2
-	}
-
 	var names []string
 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Hidden || flag.Deprecated != "" {
 			return
 		}
-		nearEnough := editDistance(typed, flag.Name) <= distance
-		prefixOf := strings.HasPrefix(strings.ToLower(flag.Name), strings.ToLower(typed))
-		if nearEnough || prefixOf {
+		if near(typed, flag.Name, distance) {
 			names = append(names, "--"+flag.Name)
 		}
 	})

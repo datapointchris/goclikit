@@ -3,6 +3,7 @@ package goclikit
 import (
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -110,13 +111,10 @@ func TestAShorthandMistakeIsNotAnsweredWithGuesses(t *testing.T) {
 }
 
 // A consumer that turned suggestions off for commands meant it for the whole
-// command line.
+// command line. It turns them off on the root, which is where cobra reads it.
 func TestDisableSuggestionsSilencesTheFlagGuesses(t *testing.T) {
 	root := searchRoot()
 	root.DisableSuggestions = true
-	for _, cmd := range root.Commands() {
-		cmd.DisableSuggestions = true
-	}
 
 	message := messageOf(t, root, "search", "--ownd")
 
@@ -164,6 +162,84 @@ func TestAnUnknownCommandKeepsCobrasOwnSuggestion(t *testing.T) {
 	}
 	if strings.Contains(message, "\n\n\n") {
 		t.Errorf("cobra's trailing newline and the suffix left a two-line gap:\n%q", message)
+	}
+}
+
+// namespacedRoot is a tree whose every namespace validates its own arguments,
+// refusing a word that names nothing with UnknownCommand, so cobra's root
+// validator never runs. admin holds a hidden subcommand beside a visible one it
+// shares a prefix with, and one reached by a SuggestFor word.
+func namespacedRoot() *cobra.Command {
+	namespace := func(cmd *cobra.Command) *cobra.Command {
+		cmd.Args = cobra.ArbitraryArgs
+		cmd.RunE = func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			return UnknownCommand(cmd, args[0])
+		}
+		return cmd
+	}
+	root := namespace(searchRoot())
+	admin := namespace(&cobra.Command{Use: "admin"})
+	run := func(*cobra.Command, []string) {}
+	admin.AddCommand(
+		&cobra.Command{Use: "update", Run: run},
+		&cobra.Command{Use: "updates", Hidden: true, Run: run},
+		&cobra.Command{Use: "ls", SuggestFor: []string{"dir"}, Run: run},
+	)
+	root.AddCommand(admin)
+	return root
+}
+
+// A word a namespace refuses is answered with the subcommands near it and the
+// command that lists every one, by the rule cobra answers a root's with, and
+// with the settings read where cobra reads them.
+func TestAWordANamespaceRefusesNamesTheNearSubcommands(t *testing.T) {
+	for _, c := range []struct {
+		why   string
+		args  []string
+		tune  func(root *cobra.Command)
+		named []string
+	}{
+		{why: "one edit, at the root", args: []string{"sarch"}, named: []string{"search"}},
+		{why: "one edit, in a namespace", args: []string{"admin", "uodate"}, named: []string{"update"}},
+		{why: "two edits", args: []string{"admin", "uodatw"}, named: []string{"update"}},
+		{why: "a prefix", args: []string{"admin", "upd"}, named: []string{"update"}},
+		{why: "a SuggestFor word", args: []string{"admin", "dir"}, named: []string{"ls"}},
+		{why: "a hidden subcommand", args: []string{"admin", "updatez"}, named: []string{"update"}},
+		{
+			why: "turned off on the root", args: []string{"admin", "uodate"}, named: nil,
+			tune: func(root *cobra.Command) { root.DisableSuggestions = true },
+		},
+		{
+			why: "one edit allowed on the root", args: []string{"admin", "uodatw"}, named: nil,
+			tune: func(root *cobra.Command) { root.SuggestionsMinimumDistance = 1 },
+		},
+	} {
+		root := namespacedRoot()
+		if c.tune != nil {
+			c.tune(root)
+		}
+		withArgs(t, c.args...)
+		err := execute(t, root)
+		if !errors.Is(err, ErrUsage) {
+			t.Fatalf("%s: error is not ErrUsage: %v", c.why, err)
+		}
+		message := err.Error()
+		namespace := strings.Join(append([]string{"demo"}, c.args[:len(c.args)-1]...), " ")
+		if want := "Run '" + namespace + " --help' for usage."; !strings.HasSuffix(message, want) {
+			t.Errorf("%s: message does not end naming %q:\n%s", c.why, want, message)
+		}
+		_, block, offered := strings.Cut(message, "Did you mean this?")
+		if offered != (len(c.named) > 0) {
+			t.Errorf("%s: offered a block %v, want %v:\n%s", c.why, offered, len(c.named) > 0, message)
+			continue
+		}
+		block, _, _ = strings.Cut(block, "Run '")
+		if got := strings.Fields(block); !slices.Equal(got, c.named) {
+			t.Errorf("%s: offered %v, want %v", c.why, got, c.named)
+		}
 	}
 }
 
