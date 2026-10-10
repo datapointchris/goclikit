@@ -108,6 +108,10 @@ the namespace does not declare is refused the same way. Cobra parses flags
 before it validates arguments, so `tool admin uodate --json` would otherwise
 answer `unknown flag: --json` and never mention the word.
 
+A word typed with `--help` is refused too. Cobra answers `--help` before it
+validates arguments, so `tool admin uodate --help` would print the help for
+`tool admin` and exit 0, and the reader would take it for help on `uodate`.
+
 Annotations are not inherited, so each namespace is marked, the root included
 where it is one. A namespace keeps a run function of its own. `UnknownCommand`
 is the refusal for that case, carrying the near subcommands by the same rule
@@ -255,8 +259,9 @@ first argument as an unknown subcommand would break it.
 **`AsNamespace` gives the namespace its run function itself.** A consumer's
 tests build the tree and drive it through cobra's own `Execute`, and a bare
 namespace and an unknown word are answered there exactly as in the shipped
-binary. Only the word before an unknown flag needs `Execute`, since that is
-answered from the composed `FlagErrorFunc`. For an annotation written by hand,
+binary. Only a word typed with an unknown flag or with `--help` needs
+`Execute`, which answers the first from the composed `FlagErrorFunc` and the
+second before cobra runs. For an annotation written by hand,
 `Execute` installs the run function on the command it resolved, which is the
 one cobra runs.
 

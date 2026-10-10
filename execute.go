@@ -163,9 +163,17 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 
 	// An unresolvable command line is about to produce a usage error, which is
 	// not the moment for an update notice.
-	target, findErr := resolveTarget(root)
+	target, rest, findErr := resolveTarget(root)
 	config.Suppress = config.Suppress || findErr != nil || target == nil ||
 		suppressed(target) || helpRequested(commandLineArgs())
+
+	// Before the run, because cobra prints the help and returns nil, which
+	// leaves nothing afterwards to refuse.
+	if findErr == nil {
+		if refused := refuseWordWithHelp(target, rest); refused != nil {
+			return refused
+		}
+	}
 
 	// For a namespace whose annotation a CLI writes itself, which AsNamespace
 	// never sees. The resolved command is the one cobra runs, so it is the only
@@ -208,12 +216,14 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 // Resolved with cobra's own Find so the answer matches what cobra will do with
 // flags, aliases and abbreviations, rather than a hand-rolled scan of os.Args
 // that would have to reimplement all three.
-func resolveTarget(root *cobra.Command) (*cobra.Command, error) {
+//
+// The arguments returned are what Find left once it had matched every
+// subcommand it could, flags included.
+func resolveTarget(root *cobra.Command) (*cobra.Command, []string, error) {
 	args := root.Flags().Args()
 	if len(args) == 0 {
 		args = commandLineArgs()
 	}
 
-	target, _, err := root.Find(args)
-	return target, err
+	return root.Find(args)
 }

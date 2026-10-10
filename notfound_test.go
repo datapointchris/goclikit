@@ -100,7 +100,7 @@ func TestTheCommandExecuteResolvesIsTheCommandCobraRuns(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			withArgs(t, args...)
 			root := notFoundRoot(missing("item 1 not found"))
-			resolved, _ := resolveTarget(root)
+			resolved, _, _ := resolveTarget(root)
 
 			_ = executeWith(t, root, WithNotFound(apiClassifier))
 
@@ -224,7 +224,7 @@ func TestACommandWithNoHintsInItsAncestryIsUntouched(t *testing.T) {
 func TestANotFoundRaisedBeforeRunEIsStillHinted(t *testing.T) {
 	withArgs(t, "projects", "items", "show", "7")
 	root := notFoundRoot(nil)
-	target, _ := resolveTarget(root)
+	target, _, _ := resolveTarget(root)
 	target.PersistentPreRunE = func(*cobra.Command, []string) error {
 		return missing("item 7 not found")
 	}

@@ -157,3 +157,94 @@ func TestAHandWrittenNamespaceAnnotationWorksTheSame(t *testing.T) {
 		t.Errorf("got:\n%v\n\nwant it to open:\n%s", err, want)
 	}
 }
+
+// flaggedNamespacedRoot is namespacedRoot with a persistent string flag and a
+// persistent bool, so a word can sit behind a flag's value, inherited by the
+// namespace rather than declared on it.
+func flaggedNamespacedRoot() *cobra.Command {
+	root := namespacedRoot()
+	root.PersistentFlags().StringP("format", "o", "", "output format")
+	root.PersistentFlags().BoolP("verbose", "v", false, "say more")
+	return root
+}
+
+func TestFirstWordSkipsEveryFlagAndItsValue(t *testing.T) {
+	root := flaggedNamespacedRoot()
+	admin := find(t, root, "admin")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"uodate"}, "uodate"},
+		{[]string{"--json", "uodate"}, "uodate"},
+		{[]string{"--format", "x", "uodate"}, "uodate"},
+		{[]string{"--format=x", "uodate"}, "uodate"},
+		{[]string{"--verbose", "uodate"}, "uodate"},
+		{[]string{"-o", "x", "uodate"}, "uodate"},
+		{[]string{"-vo", "x", "uodate"}, "uodate"},
+		{[]string{"-ox", "uodate"}, "uodate"},
+		{[]string{"--", "uodate"}, ""},
+		{[]string{"--help"}, ""},
+	} {
+		if got := firstWord(admin, c.args); got != c.want {
+			t.Errorf("firstWord(%v) = %q, want %q", c.args, got, c.want)
+		}
+	}
+}
+
+// Cobra answers --help before it validates arguments, so the namespace's help
+// would print for a word it never matched, and exit 0.
+func TestAWordWithHelpIsRefusedOnANamespace(t *testing.T) {
+	for _, c := range []struct {
+		args      []string
+		refused   string
+		namespace string
+	}{
+		{[]string{"admin", "uodate", "--help"}, "uodate", "demo admin"},
+		{[]string{"admin", "--help", "uodate"}, "uodate", "demo admin"},
+		{[]string{"admin", "-o", "x", "uodate", "-h"}, "uodate", "demo admin"},
+		{[]string{"sarch", "--help"}, "sarch", "demo"},
+	} {
+		withArgs(t, c.args...)
+		err := execute(t, flaggedNamespacedRoot())
+		if !errors.Is(err, ErrUsage) {
+			t.Fatalf("%v: error is not ErrUsage: %v", c.args, err)
+		}
+		if want := "unknown command \"" + c.refused + "\" for \"" + c.namespace + "\""; !strings.HasPrefix(err.Error(), want) {
+			t.Errorf("%v: message does not open %q:\n%s", c.args, want, err)
+		}
+	}
+}
+
+// Help on the namespace itself, on a subcommand it matched, or on a group that
+// is not marked, is still the help that was asked for.
+func TestHelpWithNoUnmatchedWordStillPrints(t *testing.T) {
+	unmarked := func() *cobra.Command {
+		root := searchRoot()
+		group := &cobra.Command{Use: "group", Args: cobra.ArbitraryArgs, Run: func(*cobra.Command, []string) {}}
+		group.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})
+		root.AddCommand(group)
+		return root
+	}
+	for _, c := range []struct {
+		why  string
+		args []string
+		root func() *cobra.Command
+	}{
+		{"the namespace", []string{"admin", "--help"}, flaggedNamespacedRoot},
+		{"a matched subcommand", []string{"admin", "update", "--help"}, flaggedNamespacedRoot},
+		{"after a double dash", []string{"admin", "--help", "--", "uodate"}, flaggedNamespacedRoot},
+		{"an unmarked group", []string{"group", "lst", "--help"}, unmarked},
+	} {
+		withArgs(t, c.args...)
+		root := c.root()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		if err := execute(t, root); err != nil {
+			t.Errorf("%s: help failed: %v", c.why, err)
+		}
+		if !strings.Contains(out.String(), "Usage:") {
+			t.Errorf("%s: no help printed:\n%s", c.why, out.String())
+		}
+	}
+}

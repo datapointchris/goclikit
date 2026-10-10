@@ -134,6 +134,13 @@ mutation that reverses it:
   value.
 - Installing over a namespace's own run function fails
   `TestANamespacesOwnRunFunctionIsKept`.
+- Dropping the help refusal from `Execute` fails
+  `TestAWordWithHelpIsRefusedOnANamespace`. Refusing on an unmarked group, or
+  reading past a `--`, fails `TestHelpWithNoUnmatchedWordStillPrints`.
+- Reading only the namespace's own flags fails
+  `TestFirstWordSkipsEveryFlagAndItsValue`, whose value flag is inherited from
+  the root. Before cobra runs, a persistent flag is not yet merged into the
+  namespace's flag set.
 
 ## Releasing
 
