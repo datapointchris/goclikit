@@ -121,9 +121,10 @@ empty-subject guard, and moving the hint ahead of the usage branch.
 **The namespace tests each pin one decision.** Each failed alone under the
 mutation that reverses it:
 
-- Not installing the run function fails
-  `TestAMarkedNamespaceWithNoRunFunctionRefusesAWord`, because cobra answers a
-  command with none by printing help and returning nil.
+- Not installing the run function in `AsNamespace` fails
+  `TestAsNamespaceRefusesAWordUnderCobrasOwnExecute`, and not installing it in
+  `Execute` fails `TestAHandMarkedNamespaceWithNoRunFunctionRefusesAWord`.
+  Cobra answers a command with none by printing help and returning nil.
 - Dropping the refusal from the composed `FlagErrorFunc` fails
   `TestAWordBeforeAnUnknownFlagIsRefusedOnANamespace`.
 - Reading `HasAvailableSubCommands` instead of the annotation fails

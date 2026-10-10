@@ -167,10 +167,11 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	config.Suppress = config.Suppress || findErr != nil || target == nil ||
 		suppressed(target) || helpRequested(commandLineArgs())
 
-	// The resolved command is the one cobra runs, so it is the only one that
-	// needs a run function. A namespace with one of its own keeps it.
-	if target != nil && isNamespace(target) && !target.Runnable() {
-		target.RunE = runNamespace
+	// For a namespace whose annotation a CLI writes itself, which AsNamespace
+	// never sees. The resolved command is the one cobra runs, so it is the only
+	// one that needs a run function.
+	if target != nil && isNamespace(target) {
+		giveRunFunction(target)
 	}
 
 	// Composed with whatever the caller already set rather than replacing it:

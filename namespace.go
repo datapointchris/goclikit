@@ -23,14 +23,19 @@ const NamespaceAnnotation = "goclikit.namespace"
 //     refuses the word as well. Cobra parses flags before it validates
 //     arguments, so it would report the flag and never mention the word.
 //
-// The first two need a run function, and Execute installs one only where the
-// namespace has none of its own. Annotations are not inherited, so each
-// namespace in a tree is marked, the root included where it is one.
+// The first two need a run function. AsNamespace gives cmd one where it has
+// none of its own, so a tree driven by cobra's own Execute answers them too, as
+// a test building the tree directly does. Execute gives one to a namespace
+// whose annotation a CLI writes itself. The third needs Execute.
+//
+// Annotations are not inherited, so each namespace in a tree is marked, the
+// root included where it is one.
 func AsNamespace(cmd *cobra.Command) *cobra.Command {
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
 	cmd.Annotations[NamespaceAnnotation] = "true"
+	giveRunFunction(cmd)
 	return cmd
 }
 
@@ -39,7 +44,15 @@ func isNamespace(cmd *cobra.Command) bool {
 	return marked
 }
 
-// runNamespace is the run function [Execute] gives a namespace that has none.
+// giveRunFunction installs runNamespace on a namespace with no run function,
+// and leaves one that has its own alone.
+func giveRunFunction(cmd *cobra.Command) {
+	if !cmd.Runnable() {
+		cmd.RunE = runNamespace
+	}
+}
+
+// runNamespace is the run function a namespace with none of its own is given.
 //
 // Cobra's own answer to a command with no run function is its help screen and
 // a nil error, for a bare line and a mistyped one alike. A script then reads a

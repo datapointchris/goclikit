@@ -252,9 +252,13 @@ because that line reports no flag error.
 command a namespace, since a group may take arguments of its own. Refusing its
 first argument as an unknown subcommand would break it.
 
-**The run function goes on the resolved command only.** Cobra runs exactly the
-command `Execute` resolved, so the rest of the tree is left as the consumer
-built it.
+**`AsNamespace` gives the namespace its run function itself.** A consumer's
+tests build the tree and drive it through cobra's own `Execute`, and a bare
+namespace and an unknown word are answered there exactly as in the shipped
+binary. Only the word before an unknown flag needs `Execute`, since that is
+answered from the composed `FlagErrorFunc`. For an annotation written by hand,
+`Execute` installs the run function on the command it resolved, which is the
+one cobra runs.
 
 ## License
 

@@ -76,13 +76,40 @@ func TestAnUnmarkedGroupStillReportsTheFlag(t *testing.T) {
 	}
 }
 
-// Cobra answers a command with no run function by printing its help and
-// returning nil, whatever was typed after it. Execute supplies one, which is
-// the only way a marked namespace with none can refuse a word.
-func TestAMarkedNamespaceWithNoRunFunctionRefusesAWord(t *testing.T) {
-	withArgs(t, "admin", "uodate")
+// handMarkedRoot is a tree whose one namespace carries the annotation a CLI
+// writes itself, with an empty value and no run function.
+func handMarkedRoot() *cobra.Command {
+	root := &cobra.Command{Use: "demo", SilenceErrors: true, SilenceUsage: true}
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	group := &cobra.Command{Use: "hand", Annotations: map[string]string{NamespaceAnnotation: ""}}
+	group.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})
+	root.AddCommand(group)
+	return root
+}
 
-	err := execute(t, namespacedRoot())
+// Cobra answers a command with no run function by printing its help and
+// returning nil, whatever was typed after it. Execute supplies one to a
+// namespace AsNamespace never saw.
+func TestAHandMarkedNamespaceWithNoRunFunctionRefusesAWord(t *testing.T) {
+	withArgs(t, "hand", "lst")
+
+	err := execute(t, handMarkedRoot())
+	if !errors.Is(err, ErrUsage) {
+		t.Fatalf("error is not ErrUsage: %v", err)
+	}
+	if want := `unknown command "lst" for "demo hand"`; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("message does not open %q:\n%s", want, err)
+	}
+}
+
+// A consumer's tests drive the tree it builds through cobra's own Execute, and
+// a marked namespace refuses a word there as well.
+func TestAsNamespaceRefusesAWordUnderCobrasOwnExecute(t *testing.T) {
+	root := namespacedRoot()
+	root.SetArgs([]string{"admin", "uodate"})
+
+	err := root.Execute()
 	if !errors.Is(err, ErrUsage) {
 		t.Fatalf("error is not ErrUsage: %v", err)
 	}
@@ -124,14 +151,8 @@ func TestANamespacesOwnRunFunctionIsKept(t *testing.T) {
 // AsNamespace.
 func TestAHandWrittenNamespaceAnnotationWorksTheSame(t *testing.T) {
 	withArgs(t, "hand", "lst", "--json")
-	root := &cobra.Command{Use: "demo", SilenceErrors: true, SilenceUsage: true}
-	root.SetOut(io.Discard)
-	root.SetErr(io.Discard)
-	group := &cobra.Command{Use: "hand", Annotations: map[string]string{NamespaceAnnotation: ""}}
-	group.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})
-	root.AddCommand(group)
 
-	err := execute(t, root)
+	err := execute(t, handMarkedRoot())
 	if want := `unknown command "lst" for "demo hand"`; err == nil || !strings.HasPrefix(err.Error(), want) {
 		t.Errorf("got:\n%v\n\nwant it to open:\n%s", err, want)
 	}
