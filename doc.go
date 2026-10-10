@@ -10,8 +10,9 @@
 //     classifies the first as [ErrUsage] and the caller selects 2.
 //   - Alternatives. Cobra names the token it rejected and stops, without the
 //     flags it had just consulted. [Execute] appends the near matches. A
-//     namespace that refuses an unknown word itself returns [UnknownCommand],
-//     which carries the near subcommands.
+//     command marked with [AsNamespace] refuses an unknown word with the near
+//     subcommands, and a namespace with a run function of its own returns
+//     [UnknownCommand] to say the same.
 //   - The next command. Cobra prints "Run '... --help' for usage" only where
 //     the resolved command has not silenced its own error output, which is a
 //     field set for unrelated reasons. [Execute] puts it in the error, so
@@ -48,8 +49,8 @@
 // to answer a mistake its own way deletes two lines, and everything it wrote
 // itself still compiles. A feature reaching out to call sites — an annotation
 // helper spread across twenty files, a wrapper each command has to remember —
-// would trade that away, so [WithRecoveryHints] is offered for convenience and
-// never required. A CLI may write the annotation itself.
+// would trade that away, so [AsNamespace] and [WithRecoveryHints] are offered
+// for convenience and never required. A CLI may write either annotation itself.
 //
 // The error constructors, [UsageError] and [UnknownCommand], are the exception
 // by design. Each is a value a command returns rather than a registration or a

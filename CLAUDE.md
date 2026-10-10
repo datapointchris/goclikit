@@ -17,6 +17,7 @@ internal consumers is not automatically right. `go list -m all` names them.
 | `update.go` | `UpdateCommand` and `ErrReported` |
 | `usage.go` | Flag suggestions, the help pointer, the edit distance |
 | `notfound.go` | The recovery-hint annotation and the classifier seam |
+| `namespace.go` | The namespace annotation, and the run function and flag-error refusal `Execute` gives a marked command |
 | `options.go` | `Option` and `WithNotFound` |
 | `args.go` | `os.Args` without the program name |
 
@@ -31,8 +32,8 @@ paper, and it is the property a feature is checked against before it is added:
 
 - A feature that needs per-command data takes it from a **cobra annotation**,
   never from a call this package exports into the command files. The
-  annotation key is exported for exactly this reason, and `WithRecoveryHints`
-  is sugar over writing it.
+  annotation key is exported for exactly this reason, and `AsNamespace` and
+  `WithRecoveryHints` are sugar over writing one.
 - A feature that needs consumer logic takes it as an **`Option` on `Execute`**,
   so a CLI that does not want it passes nothing.
 - A feature that would require a wrapper around each command, or an ordering
@@ -47,6 +48,10 @@ paper, and it is the property a feature is checked against before it is added:
   usage errors with its own type was never reached at all. Dropping the
   package then means replacing the constructors with plain errors, which is a
   mechanical edit, not a redesign.
+- **The namespace annotation is what makes refusing a word in `Execute`
+  right.** It is the command declaring that every word left over is a
+  subcommand, which the error's presence never said. Without the annotation,
+  `Execute` refuses nothing, so the inference measured wrong above stays out.
 
 **Why**: eleven CLIs depend on this. If dropping it means editing twenty files
 in each of them, the dependency has stopped being a choice, and a library
@@ -112,6 +117,22 @@ them exist because the obvious implementation passes without them:
 Each gate was proved able to fail before being trusted: starting the ancestry
 walk at the root, dropping the `hintNotFound` call from `Execute`, dropping the
 empty-subject guard, and moving the hint ahead of the usage branch.
+
+**The namespace tests each pin one decision.** Each failed alone under the
+mutation that reverses it:
+
+- Not installing the run function fails
+  `TestAMarkedNamespaceWithNoRunFunctionRefusesAWord`, because cobra answers a
+  command with none by printing help and returning nil.
+- Dropping the refusal from the composed `FlagErrorFunc` fails
+  `TestAWordBeforeAnUnknownFlagIsRefusedOnANamespace`.
+- Reading `HasAvailableSubCommands` instead of the annotation fails
+  `TestAnUnmarkedGroupStillReportsTheFlag`.
+- Requiring the value `"true"` fails
+  `TestAHandWrittenNamespaceAnnotationWorksTheSame`, which writes an empty
+  value.
+- Installing over a namespace's own run function fails
+  `TestANamespacesOwnRunFunctionIsKept`.
 
 ## Releasing
 

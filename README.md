@@ -85,18 +85,12 @@ matches rather than the whole flag set, so a wide flag surface does not answer
 one typo with a wall.
 
 Cobra's unknown-command suggestion comes only from its root validator, which
-runs where the root declares no `Args`. A tool whose namespaces validate their
-own arguments, so that a bare one shows help and an unknown word exits 2, says
-the word is unknown itself. `UnknownCommand` is that refusal, carrying the near
-subcommands by the same rule and the pointer:
+runs where the root declares no `Args`. Below the root, a command that only
+groups subcommands answers a mistyped one with its help screen and exit 0.
+Mark each such namespace, and `Execute` refuses the word instead:
 
 ```go
-RunE: func(cmd *cobra.Command, args []string) error {
-    if len(args) == 0 {
-        return cmd.Help()
-    }
-    return goclikit.UnknownCommand(cmd, args[0])
-},
+root.AddCommand(goclikit.AsNamespace(newAdminCommand()))
 ```
 
 ```text
@@ -107,6 +101,25 @@ Did you mean this?
   update
 
 Run 'tool admin --help' for usage.
+```
+
+A bare namespace still shows its help and exits 0. A word followed by a flag
+the namespace does not declare is refused the same way. Cobra parses flags
+before it validates arguments, so `tool admin uodate --json` would otherwise
+answer `unknown flag: --json` and never mention the word.
+
+Annotations are not inherited, so each namespace is marked, the root included
+where it is one. A namespace keeps a run function of its own. `UnknownCommand`
+is the refusal for that case, carrying the near subcommands by the same rule
+and the pointer:
+
+```go
+RunE: func(cmd *cobra.Command, args []string) error {
+    if len(args) == 0 {
+        return printSummary(cmd)
+    }
+    return goclikit.UnknownCommand(cmd, args[0])
+},
 ```
 
 The prose is a suffix on the error, so `errors.Is` and `errors.As` still reach
@@ -185,15 +198,18 @@ A tool that wants to answer a mistake its own way deletes two lines from
 out to call sites — a wrapper each command had to remember, a helper spread
 across twenty files — would trade that away.
 
-`WithRecoveryHints` is therefore a convenience and never a requirement. The
-contract is the annotation, and its key is exported, so a CLI can write it
-directly and keep this package out of its command files:
+`AsNamespace` and `WithRecoveryHints` are therefore conveniences and never
+requirements. The contract is the annotation, and its key is exported, so a CLI
+can write it directly and keep this package out of its command files:
 
 ```go
 cmd.Annotations = map[string]string{
+    goclikit.NamespaceAnnotation:     "true",
     goclikit.RecoveryHintsAnnotation: strings.Join(hints, "\n"),
 }
 ```
+
+The namespace annotation's value is not read. Its presence marks the command.
 
 The error constructors, `UsageError` and `UnknownCommand`, are the exception.
 Each is a value a command returns rather than a wrapper it has to remember, and
@@ -229,7 +245,16 @@ the call sites that never asked for it.
 
 **Options are composed with what the caller already set, never replacing it.**
 A consumer's own `FlagErrorFunc` still runs, and its error type still survives
-`errors.As`.
+`errors.As`. A word a namespace refuses is the one line it does not see,
+because that line reports no flag error.
+
+**A namespace is declared, never inferred.** Having subcommands does not make a
+command a namespace, since a group may take arguments of its own. Refusing its
+first argument as an unknown subcommand would break it.
+
+**The run function goes on the resolved command only.** Cobra runs exactly the
+command `Execute` resolved, so the rest of the tree is left as the consumer
+built it.
 
 ## License
 

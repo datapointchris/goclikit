@@ -92,14 +92,14 @@ func explainCommandError(cmd *cobra.Command, err error) error {
 // marked [ErrUsage].
 //
 // Cobra's unknown-command suggestion comes only from its root validator, which
-// runs where the root declares no Args. A namespace that validates its own
-// arguments, so that bare shows help and an unknown word exits 2, has to say
-// the word is unknown itself. This is that sentence with the alternatives and
-// the pointer in it, worded the way cobra words both.
+// runs where the root declares no Args. A command marked with [AsNamespace]
+// gets this refusal from [Execute]. A namespace with a run function of its own
+// has to say the word is unknown itself, and this is that sentence with the
+// alternatives and the pointer in it, worded the way cobra words both.
 //
 //	RunE: func(cmd *cobra.Command, args []string) error {
 //		if len(args) == 0 {
-//			return cmd.Help()
+//			return printSummary(cmd)
 //		}
 //		return goclikit.UnknownCommand(cmd, args[0])
 //	},

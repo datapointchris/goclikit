@@ -165,23 +165,15 @@ func TestAnUnknownCommandKeepsCobrasOwnSuggestion(t *testing.T) {
 	}
 }
 
-// namespacedRoot is a tree whose every namespace validates its own arguments,
-// refusing a word that names nothing with UnknownCommand, so cobra's root
-// validator never runs. admin holds a hidden subcommand beside a visible one it
-// shares a prefix with, and one reached by a SuggestFor word.
+// namespacedRoot is a tree whose every namespace is marked with AsNamespace,
+// so each refuses a word that names nothing with UnknownCommand. The root
+// accepts any arguments, so cobra's root validator never runs. admin holds a
+// hidden subcommand beside a visible one it shares a prefix with, and one
+// reached by a SuggestFor word.
 func namespacedRoot() *cobra.Command {
-	namespace := func(cmd *cobra.Command) *cobra.Command {
-		cmd.Args = cobra.ArbitraryArgs
-		cmd.RunE = func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
-			return UnknownCommand(cmd, args[0])
-		}
-		return cmd
-	}
-	root := namespace(searchRoot())
-	admin := namespace(&cobra.Command{Use: "admin"})
+	root := AsNamespace(searchRoot())
+	root.Args = cobra.ArbitraryArgs
+	admin := AsNamespace(&cobra.Command{Use: "admin"})
 	run := func(*cobra.Command, []string) {}
 	admin.AddCommand(
 		&cobra.Command{Use: "update", Run: run},

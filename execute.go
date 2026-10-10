@@ -145,6 +145,9 @@ func suppressed(cmd *cobra.Command) bool {
 //		}
 //	}
 //
+// A command marked with [AsNamespace] refuses a word naming none of its
+// subcommands, whether or not a flag follows the word.
+//
 // A not-found comes back carrying the commands that find a real id, for a
 // caller that supplied [WithNotFound] and annotated its resource commands with
 // [WithRecoveryHints]. Without the option nothing about an error changes.
@@ -164,11 +167,23 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	config.Suppress = config.Suppress || findErr != nil || target == nil ||
 		suppressed(target) || helpRequested(commandLineArgs())
 
+	// The resolved command is the one cobra runs, so it is the only one that
+	// needs a run function. A namespace with one of its own keeps it.
+	if target != nil && isNamespace(target) && !target.Runnable() {
+		target.RunE = runNamespace
+	}
+
 	// Composed with whatever the caller already set rather than replacing it:
 	// cobra hands back a working default when nothing is set, so this is safe
 	// either way and never silently drops a consumer's own handler.
+	//
+	// The caller's handler is not consulted for a word a namespace refuses,
+	// because that line is answered for the word and reports no flag error.
 	previous := root.FlagErrorFunc()
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		if refused := refuseWordBeforeFlag(cmd); refused != nil {
+			return refused
+		}
 		return usageError{explainFlagError(cmd, previous(cmd, err))}
 	})
 
