@@ -60,7 +60,7 @@ func UpdateCommand(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 
 Replaces the running binary with a pre-built release archive, verified against
 the release's published checksums. No Go toolchain required.`, cfg.Binary),
-		Args: cobra.NoArgs,
+		Args: noArgs,
 		// The command writes its own failures in the ✓/✗ format below, so
 		// neither cobra nor the caller's main should print them again.
 		SilenceErrors: true,
@@ -86,6 +86,16 @@ the release's published checksums. No Go toolchain required.`, cfg.Binary),
 		"report whether an update is available without installing it")
 
 	return cmd
+}
+
+// noArgs refuses an argument by saying the command takes none. cobra.NoArgs
+// words it as a mistyped subcommand, and update has none.
+func noArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	path := cmd.CommandPath()
+	return UsageError(fmt.Errorf("%s takes no arguments; run '%s --help' for usage", path, path))
 }
 
 func report(ctx context.Context, out io.Writer, cfg goselfupdate.Config, opts Options, result goselfupdate.Result) {

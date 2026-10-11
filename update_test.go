@@ -168,6 +168,21 @@ func TestOptionsOverrideName(t *testing.T) {
 	}
 }
 
+// cobra.NoArgs reports `unknown command "foo"`, a typo report for a
+// subcommand, on a command that has none.
+func TestAnArgumentIsAUsageErrorSayingTheCommandTakesNone(t *testing.T) {
+	cmd := goclikit.UpdateCommand(config(stubSource{tag: "v1.0.0"}, "v1.0.0"))
+	cmd.SetArgs([]string{"foo"})
+
+	err := cmd.Execute()
+	if !errors.Is(err, goclikit.ErrUsage) {
+		t.Fatalf("err = %v, want a usage error", err)
+	}
+	if want := "update takes no arguments; run 'update --help' for usage"; err.Error() != want {
+		t.Errorf("err = %q, want %q", err, want)
+	}
+}
+
 // Cobra must not print the error itself, or every failure appears twice.
 func TestErrorsAreSilencedOnTheCommand(t *testing.T) {
 	cmd := goclikit.UpdateCommand(config(stubSource{tag: "v1.0.0"}, "v1.0.0"))
