@@ -235,6 +235,7 @@ func TestHelpWithNoUnmatchedWordStillPrints(t *testing.T) {
 		{"a matched subcommand", []string{"admin", "update", "--help"}, flaggedNamespacedRoot},
 		{"after a double dash", []string{"admin", "--help", "--", "uodate"}, flaggedNamespacedRoot},
 		{"an unmarked group", []string{"group", "lst", "--help"}, unmarked},
+		{"cobra's own completion command", []string{"completion", "zsh", "--help"}, flaggedNamespacedRoot},
 	} {
 		withArgs(t, c.args...)
 		root := c.root()
