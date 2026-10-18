@@ -212,7 +212,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	// findErr is cobra's own verdict that the command line names nothing it can
 	// run, so any error from a line it already rejected is a usage error.
 	if err != nil && findErr != nil {
-		return usageError{explainCommandError(target, err)}
+		return usageError{explainCommandError(target, rest, err)}
 	}
 
 	// After the usage branch, because a line cobra rejected never reached a

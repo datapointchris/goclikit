@@ -235,6 +235,52 @@ func TestAWordANamespaceRefusesNamesTheNearSubcommands(t *testing.T) {
 	}
 }
 
+// A word naming a real command further down the tree is answered with that
+// command's full path, wherever it sits below the command that refused it.
+func TestAWordNamingADeeperCommandIsNamedByItsPath(t *testing.T) {
+	tree := func() *cobra.Command {
+		run := func(*cobra.Command, []string) {}
+		root := &cobra.Command{Use: "demo"}
+		issues := &cobra.Command{Use: "issues"}
+		initiatives := &cobra.Command{Use: "initiatives", Aliases: []string{"inits"}}
+		initiatives.AddCommand(&cobra.Command{Use: "list", Run: run})
+		issues.AddCommand(initiatives, &cobra.Command{Use: "list", Run: run})
+		internal := &cobra.Command{Use: "internal", Hidden: true}
+		internal.AddCommand(&cobra.Command{Use: "initiatives", Run: run})
+		root.AddCommand(issues, internal)
+		return root
+	}
+	for _, c := range []struct {
+		why   string
+		from  []string
+		word  string
+		tune  func(root *cobra.Command)
+		paths []string
+	}{
+		{why: "two levels down, a hidden copy skipped", word: "initiatives", paths: []string{"demo issues initiatives"}},
+		{why: "an alias", word: "inits", paths: []string{"demo issues initiatives"}},
+		{why: "every match", word: "list", paths: []string{"demo issues initiatives list", "demo issues list"}},
+		{why: "a direct child is never refused", from: []string{"issues"}, word: "list", paths: []string{"demo issues initiatives list"}},
+		{why: "nothing named", word: "initiative", paths: nil},
+		{
+			why: "suggestions off", word: "initiatives", paths: nil,
+			tune: func(root *cobra.Command) { root.DisableSuggestions = true },
+		},
+	} {
+		root := tree()
+		if c.tune != nil {
+			c.tune(root)
+		}
+		from, _, err := root.Find(c.from)
+		if err != nil {
+			t.Fatalf("%s: %v", c.why, err)
+		}
+		if got := commandsNamed(from, c.word); !slices.Equal(got, c.paths) {
+			t.Errorf("%s: named %v, want %v", c.why, got, c.paths)
+		}
+	}
+}
+
 // Explaining the failure must not disturb what a caller matches on, which is
 // the whole reason the prose is a suffix rather than a replacement.
 func TestExplainingAFlagErrorKeepsTheErrorMatchable(t *testing.T) {

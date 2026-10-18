@@ -127,7 +127,9 @@ func helpInstead(cmd *cobra.Command) error {
 }
 
 // explainCommandError adds the help pointer to a command line naming nothing
-// cobra can run.
+// cobra can run, and the full path of any command deeper in the tree named by
+// the word cobra refused. rest is what cobra's Find left once it had matched
+// every subcommand it could.
 //
 // Cobra prints this pointer itself, and only when the resolved command has not
 // silenced its own error output — so whether a tool shows it is decided by a
@@ -136,16 +138,31 @@ func helpInstead(cmd *cobra.Command) error {
 // is what makes every tool show it exactly once: silenced, and it travels with
 // the error to whoever prints that; not silenced, and cobra has already
 // printed it.
-func explainCommandError(cmd *cobra.Command, err error) error {
+//
+// Cobra's own block names the near siblings and closes the message, so the
+// deeper commands continue that block where cobra offered one. Whether it did
+// is read from SuggestionsFor, the function cobra builds the block from, never
+// from the message.
+func explainCommandError(cmd *cobra.Command, rest []string, err error) error {
 	if err == nil || cmd == nil || !cmd.SilenceErrors {
 		return err
 	}
-	return explained{err: err, extra: "\n\n" + helpPointer(cmd)}
+	extra := ""
+	word := firstWord(cmd, rest)
+	if paths := commandsNamed(cmd, word); len(paths) > 0 {
+		if len(cmd.SuggestionsFor(word)) > 0 {
+			extra = "\n\t" + strings.Join(paths, "\n\t")
+		} else {
+			extra = "\n\n" + suggestionBlock(paths)
+		}
+	}
+	return explained{err: err, extra: extra + "\n\n" + helpPointer(cmd)}
 }
 
 // UnknownCommand is the error for a word that names none of cmd's subcommands:
-// the word, the subcommands near it, and the command that lists every one,
-// marked [ErrUsage].
+// the word, the subcommands near it, the full path of any command deeper under
+// cmd that it names exactly, and the command that lists every one, marked
+// [ErrUsage].
 //
 // Cobra's unknown-command suggestion comes only from its root validator, which
 // runs where the root declares no Args. A command marked with [AsNamespace]
@@ -167,11 +184,44 @@ func explainCommandError(cmd *cobra.Command, err error) error {
 func UnknownCommand(cmd *cobra.Command, word string) error {
 	refused := fmt.Errorf("unknown command %q for %q", word, cmd.CommandPath())
 	sections := make([]string, 0, 2)
-	if names := commandSuggestions(cmd, word); len(names) > 0 {
+	names := append(commandSuggestions(cmd, word), commandsNamed(cmd, word)...)
+	if len(names) > 0 {
 		sections = append(sections, suggestionBlock(names))
 	}
 	sections = append(sections, helpPointer(cmd))
 	return usageError{explained{err: refused, extra: "\n\n" + strings.Join(sections, "\n\n")}}
+}
+
+// commandsNamed is the full path of every command below cmd's own subcommands
+// whose name or alias is word, or nil where suggestions are off.
+//
+// The edit-distance rule compares a word with cmd's subcommands only, so a
+// real command one level further down is never offered. This lookup is
+// separate from that rule rather than a wider reach of it: an exact name has no
+// false positives, and a distance read across the whole tree would have many.
+//
+// cmd's own subcommands are skipped, because a word naming one is never
+// refused. A hidden or deprecated command is skipped with everything under it,
+// as cobra leaves it out of help.
+func commandsNamed(cmd *cobra.Command, word string) []string {
+	if _, on := suggestionDistance(cmd); !on || word == "" {
+		return nil
+	}
+	var paths []string
+	var walk func(parent *cobra.Command)
+	walk = func(parent *cobra.Command) {
+		for _, sub := range parent.Commands() {
+			if !sub.IsAvailableCommand() {
+				continue
+			}
+			if parent != cmd && (sub.Name() == word || sub.HasAlias(word)) {
+				paths = append(paths, sub.CommandPath())
+			}
+			walk(sub)
+		}
+	}
+	walk(cmd)
+	return paths
 }
 
 // commandSuggestions names the subcommands of cmd near typed, and any whose

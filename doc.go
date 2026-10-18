@@ -12,7 +12,8 @@
 //     flags it had just consulted. [Execute] appends the near matches. A
 //     command marked with [AsNamespace] refuses an unknown word with the near
 //     subcommands, and a namespace with a run function of its own returns
-//     [UnknownCommand] to say the same.
+//     [UnknownCommand] to say the same. A word naming a command further down
+//     the tree is answered with that command's full path.
 //   - The next command. Cobra prints "Run '... --help' for usage" only where
 //     the resolved command has not silenced its own error output, which is a
 //     field set for unrelated reasons. [Execute] puts it in the error, so
