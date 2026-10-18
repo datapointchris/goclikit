@@ -180,6 +180,25 @@ is why two CLIs sharing one bootstrap answer the same mistake differently.
 `Execute` puts the pointer in the error on a silenced command, so every tool
 prints it exactly once.
 
+Cobra compares an unknown word with the root's own subcommands only. A word
+that names a real command further down gets that command's full path, in the
+same block:
+
+```text
+$ tool initiatives
+error: unknown command "initiatives" for "tool"
+
+Did you mean this?
+  tool issues initiatives
+
+Run 'tool --help' for usage.
+```
+
+Only an exact name or alias is offered there, because an edit distance read
+across the whole tree would offer commands nobody meant. A namespace refusing a
+word looks below itself the same way. Hidden and deprecated commands are never
+offered, and `DisableSuggestions` turns this off with the rest.
+
 A caller's own `FlagErrorFunc` still runs first, and its error type survives
 `errors.As`. The added prose is a suffix, so `errors.Is` and `errors.As` still
 reach whatever cobra, pflag or the caller produced.
