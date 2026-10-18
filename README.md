@@ -123,8 +123,8 @@ would make a caller printing `error:` emit
 `error: usage error: unknown flag: --nope`.
 
 An argument refusal is told apart by where it came from. `Execute` wraps the
-validator of the command it is about to run, so nothing matches cobra's text.
-That wrapper also says what cobra leaves out:
+validator of the command it is about to run, so classifying it reads none of
+cobra's text. That wrapper also says what cobra leaves out:
 
 ```text
 $ tool answer only-a-key
@@ -138,6 +138,11 @@ A command given none of the arguments it needs prints its help on stderr
 instead, and returns an error marked `ErrReported` as well, so `main` prints
 nothing more. A validator that marks its own refusal with `UsageError` keeps its
 wording.
+
+Cobra's `NoArgs` calls a word on a command with no subcommands an unknown
+command, as though the command had subcommands to choose from. `Execute` words
+that refusal as `tool status takes no arguments, and was given "extra"`, so a
+CLI needs no validator of its own to say it.
 
 `Execute` cannot see a required-flag or mutually-exclusive rule a command checks
 in its `RunE`. Mark that one at the source:

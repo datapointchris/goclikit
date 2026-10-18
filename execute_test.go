@@ -200,11 +200,18 @@ func TestARefusedArgumentListIsAUsageErrorSayingHowTheCommandIsCalled(t *testing
 		root.SetOut(out)
 		root.SetErr(errOut)
 		root.AddCommand(&cobra.Command{Use: "answer <key> <n>", Short: "Choose an option", Args: cobra.ExactArgs(2), Run: func(*cobra.Command, []string) {}})
+		root.AddCommand(&cobra.Command{Use: "status", Args: cobra.NoArgs, Run: func(*cobra.Command, []string) {}})
 		return root
 	}
 
-	withArgs(t, "answer", "only-a-key")
+	withArgs(t, "status", "extra")
 	err := execute(t, answerRoot(io.Discard, io.Discard))
+	if want := `demo status takes no arguments, and was given "extra"`; !errors.Is(err, ErrUsage) || !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("a word on a command taking none does not open %q: %v", want, err)
+	}
+
+	withArgs(t, "answer", "only-a-key")
+	err = execute(t, answerRoot(io.Discard, io.Discard))
 	if !errors.Is(err, ErrUsage) {
 		t.Fatalf("a short argument list is not ErrUsage: %v", err)
 	}

@@ -84,6 +84,10 @@ func explainFlagError(cmd *cobra.Command, err error) error {
 // validator that marked its own refusal with [UsageError] chose its words, so
 // it keeps them. Where the CLI lets cobra print the usage after an error,
 // cobra's usage is the explanation, and only the mark is added.
+//
+// Cobra's NoArgs calls a word on a command with no subcommands an unknown
+// command, which names a subcommand that command never had. That refusal says
+// the command takes no arguments instead.
 func explainArgs(cmd *cobra.Command) {
 	validate := cmd.Args
 	if validate == nil {
@@ -91,6 +95,10 @@ func explainArgs(cmd *cobra.Command) {
 	}
 	cmd.Args = func(cmd *cobra.Command, args []string) error {
 		err := validate(cmd, args)
+		if err != nil && len(args) > 0 && !cmd.HasSubCommands() &&
+			err.Error() == fmt.Sprintf("unknown command %q for %q", args[0], cmd.CommandPath()) {
+			err = fmt.Errorf("%s takes no arguments, and was given %q", cmd.CommandPath(), args[0])
+		}
 		switch {
 		case err == nil:
 			return nil
