@@ -30,18 +30,19 @@ var ErrReported = errors.New("already reported")
 type Options struct {
 	// Use overrides the command name. Defaults to "update".
 	//
-	// There is deliberately no alias knob. `update` is the fleet's one
-	// self-update verb, and an alias is what let `upgrade` coexist with it
-	// across every CLI without anyone choosing it.
+	// There is deliberately no alias knob. An alias is how a second verb such
+	// as `upgrade` comes to sit beside `update` without anyone choosing it,
+	// and a tool with two self-update verbs leaves its reader to guess which
+	// is the real one.
 	Use string
 
-	// Changelog prints the commits between the two versions after a
-	// successful update. Enabled by default; it costs one extra request and is
-	// skipped silently when the source cannot produce one.
+	// SkipChangelog turns off the commits a successful update lists between
+	// the two versions. The list costs one extra request, and is skipped
+	// silently when the source cannot produce one.
 	SkipChangelog bool
 }
 
-// New returns an update command for cfg.
+// UpdateCommand returns an update command for cfg.
 func UpdateCommand(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 	opts := Options{}
 	if len(options) > 0 {
@@ -60,7 +61,8 @@ func UpdateCommand(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 
 Replaces the running binary with a pre-built release archive, verified against
 the release's published checksums. No Go toolchain required.`, cfg.Binary),
-		Args: noArgs,
+		Args:        noArgs,
+		Annotations: map[string]string{updateCommandAnnotation: ""},
 		// The command writes its own failures in the ✓/✗ format below, so
 		// neither cobra nor the caller's main should print them again.
 		SilenceErrors: true,

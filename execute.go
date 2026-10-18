@@ -69,6 +69,9 @@ func UsageError(err error) error {
 // something that must feel instant. `update` is listed because a check racing
 // the update it is about to perform is pointless, and `version` because it is
 // what a script calls to find out what is installed.
+//
+// The command UpdateCommand builds carries updateCommandAnnotation as well, so
+// it is suppressed under whatever name Options gave it.
 var neverAutoUpdate = map[string]bool{
 	"update":                        true,
 	"version":                       true,
@@ -84,12 +87,9 @@ var neverAutoUpdate = map[string]bool{
 // The `help` command is on the list above, but `--help` is a flag, so it
 // resolves to an ordinary target and passes straight through. Cobra answers it
 // by printing and returning, so nothing an update notice is for ever happens —
-// and a reader walking a tool's help screens, which is what helpnav does, would
-// fire one version check per screen.
-//
-// Measured 2026-08-22: eighteen tools here write ~/.local/state/<tool>/
-// autoupdate-<machine>.json and call the releases API on `<tool> --help`. The
-// interval gate is the only reason it is not every invocation.
+// and a program crawling a tool's help screens would fire one version check per
+// screen. Without this, `<tool> --help` writes the autoupdate state file and
+// calls the releases API, held back only by the interval.
 //
 // Scanning is deliberately literal. A `--` ends the search because everything
 // after it is the command's own argument, and a suppression that fires when it
@@ -111,23 +111,27 @@ func helpRequested(args []string) bool {
 //
 // The ancestry is walked rather than only the leaf because `completion` owns a
 // subcommand per shell: `tool completion zsh` has leaf name "zsh", and a
-// leaf-only check misses it entirely. That is not hypothetical -- todoui hit
-// exactly this with its sync-on-start, and every shell that sourced the
-// completions paid for it.
+// leaf-only check misses it entirely. A CLI that synced on start hit exactly
+// this, and every shell that sourced its completions paid for it.
 func suppressed(cmd *cobra.Command) bool {
 	for current := cmd; current != nil; current = current.Parent() {
-		if neverAutoUpdate[current.Name()] {
+		if _, built := current.Annotations[updateCommandAnnotation]; built || neverAutoUpdate[current.Name()] {
 			return true
 		}
 	}
 	return false
 }
 
+// updateCommandAnnotation marks the command UpdateCommand built.
+const updateCommandAnnotation = "goclikit.update-command"
+
 // Execute runs root with an update check racing alongside it.
 //
-// The check starts before the command and the notice prints after it, so a fast
-// command pays nothing and the line is not buried in the command's output. This
-// is gh's shape, and it is the reason there is no blocking mode.
+// The check starts before the command and the notice prints after it, so the
+// line is not buried in the command's output. A command that outlasts the check
+// pays nothing for it, and one that finishes first waits for it, bounded by
+// autoupdate.Config.Timeout. This is gh's shape, and it is the reason there is
+// no blocking mode.
 //
 // A command line cobra rejects comes back classified as [ErrUsage] and carrying
 // the near-matching flags and the command that lists the valid ones, which

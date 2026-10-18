@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/datapointchris/goselfupdate"
 	"github.com/datapointchris/goselfupdate/autoupdate"
 )
 
@@ -37,59 +38,35 @@ func find(t *testing.T, root *cobra.Command, args ...string) *cobra.Command {
 	return target
 }
 
-func TestOrdinaryCommandsAreNotSuppressed(t *testing.T) {
-	root := buildRoot()
-
-	for _, args := range [][]string{{"list"}, {}} {
-		if suppressed(find(t, root, args...)) {
-			t.Errorf("%v was suppressed but should trigger a check", args)
-		}
-	}
-}
-
-func TestUpdateAndVersionAreSuppressed(t *testing.T) {
-	root := buildRoot()
-
-	for _, args := range [][]string{{"update"}, {"version"}} {
-		if !suppressed(find(t, root, args...)) {
-			t.Errorf("%v was not suppressed", args)
-		}
-	}
-}
-
-// The reason the ancestry is walked rather than only the leaf: `completion` owns
-// a subcommand per shell, so `demo completion zsh` has leaf name "zsh" and a
-// leaf-only check misses it entirely.
-func TestCompletionIsSuppressedThroughItsShellSubcommand(t *testing.T) {
+// The ancestry is walked rather than only the leaf: `completion` owns a
+// subcommand per shell, so `demo completion zsh` has leaf name "zsh". The
+// shell-completion callback runs on every TAB press, and a check there would
+// add latency to something that must feel instant.
+func TestOnlyCommandsAVersionCheckWouldRaceAreSuppressed(t *testing.T) {
 	root := buildRoot()
 	root.InitDefaultCompletionCmd()
-
-	target := find(t, root, "completion", "zsh")
-	if target.Name() != "zsh" {
-		t.Fatalf("expected to resolve the shell leaf, got %q", target.Name())
-	}
-	if !suppressed(target) {
-		t.Error("completion zsh was not suppressed; a leaf-only check would miss it")
-	}
-}
-
-// The critical entry. cobra runs this on every TAB press, so a check here would
-// fire constantly and add latency to something that must feel instant.
-func TestTheShellCompletionCallbackIsSuppressed(t *testing.T) {
+	root.AddCommand(UpdateCommand(goselfupdate.Config{Binary: "demo"}, Options{Use: "self-update"}))
 	for _, name := range []string{cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd} {
-		if !neverAutoUpdate[name] {
-			t.Errorf("%q is not on the suppression list", name)
-		}
+		root.AddCommand(&cobra.Command{Use: name, Run: func(*cobra.Command, []string) {}})
 	}
-}
 
-// A nested update command is suppressed by the same ancestry walk. meso ships
-// exactly this shape: `meso admin update`.
-func TestANestedUpdateCommandIsSuppressed(t *testing.T) {
-	root := buildRoot()
-
-	if !suppressed(find(t, root, "admin", "update")) {
-		t.Error("admin update was not suppressed")
+	for _, c := range []struct {
+		args       []string
+		suppressed bool
+	}{
+		{nil, false},
+		{[]string{"list"}, false},
+		{[]string{"update"}, true},
+		{[]string{"version"}, true},
+		{[]string{"admin", "update"}, true},
+		{[]string{"completion", "zsh"}, true},
+		{[]string{"self-update"}, true},
+		{[]string{cobra.ShellCompRequestCmd}, true},
+		{[]string{cobra.ShellCompNoDescRequestCmd}, true},
+	} {
+		if got := suppressed(find(t, root, c.args...)); got != c.suppressed {
+			t.Errorf("%v suppressed = %t, want %t", c.args, got, c.suppressed)
+		}
 	}
 }
 

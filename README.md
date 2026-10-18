@@ -314,7 +314,8 @@ it. One that finishes first waits for the check, bounded by
 `autoupdate.Config.Timeout`.
 
 `Execute` also never checks on a command named `update`, `version`,
-`completion` or `help`, on anything nested under one, on cobra's
+`completion` or `help`, on the command `UpdateCommand` built under whatever
+name `Options` gave it, on anything nested under one, on cobra's
 shell-completion callback, on a line carrying `--help` or `-h`, or on a line
 cobra cannot resolve. The completion callback runs on every TAB press, so a
 check there would add latency to something that must feel instant. The whole
