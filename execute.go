@@ -229,16 +229,16 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 // The arguments returned are what Find left once it had matched every
 // subcommand it could, flags included.
 //
+// The words are always the command line's. The root's parsed flags are empty
+// before cobra runs in a fresh process, and in a test binary that reuses one
+// root they hold the previous run's words.
+//
 // Cobra adds its own help and completion commands inside ExecuteC, so they are
 // added here first. Otherwise `completion --help` resolves to the root, and a
 // namespaced root refuses "completion" as a word it never matched. Both calls
 // leave a tree that already has the command alone.
 func resolveTarget(root *cobra.Command) (*cobra.Command, []string, error) {
-	args := root.Flags().Args()
-	if len(args) == 0 {
-		args = commandLineArgs()
-	}
-
+	args := commandLineArgs()
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd(args...)
 	return root.Find(args)

@@ -96,8 +96,8 @@ func usageRoot() *cobra.Command {
 	return root
 }
 
-// Execute reads os.Args when the root carries no parsed args, which is the only
-// way to drive both the Find and the cobra run from one place.
+// Execute reads os.Args, which is the only way to drive both the Find and the
+// cobra run from one place.
 func withArgs(t *testing.T, args ...string) {
 	t.Helper()
 	original := os.Args
@@ -222,6 +222,25 @@ func TestARefusedArgumentListIsAUsageErrorSayingHowTheCommandIsCalled(t *testing
 	}
 	if !strings.Contains(errOut.String(), "Choose an option") || out.Len() != 0 {
 		t.Errorf("the help belongs on stderr alone; stdout %q, stderr %q", out.String(), errOut.String())
+	}
+}
+
+// A consumer's test binary holds one root for every line it runs, and a line
+// the root ran itself leaves its words parsed on the root's flags.
+func TestARootReusedAcrossRunsResolvesEachCommandLineAfresh(t *testing.T) {
+	root := usageRoot()
+	root.Args = cobra.ArbitraryArgs
+	root.Run = func(*cobra.Command, []string) {}
+	root.AddCommand(&cobra.Command{Use: "show <tool>", Args: cobra.ExactArgs(1), Run: func(*cobra.Command, []string) {}})
+
+	withArgs(t, "git")
+	if err := execute(t, root); err != nil {
+		t.Fatalf("the root's own line failed: %v", err)
+	}
+
+	withArgs(t, "show", "a", "b")
+	if err := execute(t, root); !errors.Is(err, ErrUsage) {
+		t.Errorf("the second line resolved against the first, not as a usage error: %v", err)
 	}
 }
 
