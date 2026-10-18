@@ -162,18 +162,26 @@ rg -l datapointchris/goclikit ~/tools/*/go.mod ~/webapps/*/cli/go.mod
 ## Never write the breaking-change trailer in a commit message
 
 Those words — either number, colon or not, subject or body — cut a major
-release here, and a major on this repo is an outage rather than a version.
-`commit-analyzer-cz` matches them unanchored against the raw message and ORs
-the result with the configured major rules, so `.semrelrc` cannot stop it and
-it majors even a `fix:` commit.
+release once this repo is past 0.x, and a major from v1 on is an outage rather
+than a version. On 0.x, `allow-initial-development-versions` cuts them as a
+minor. `commit-analyzer-cz` matches them unanchored against the raw message and
+ORs the result with the configured major rules, so `.semrelrc` cannot stop it
+and it majors even a `fix:` commit.
 
-The module path carries no `/vN` suffix, so once a major exists `go get …@latest`
-cannot see it and silently resolves the highest v0 instead. **The ban covers a
+The module path carries no `/vN` suffix, so once a v2 exists `go get …@latest`
+cannot see it and silently resolves the highest v1 instead. **The ban covers a
 commit that merely discusses the trailer.** Name it some other way — "that
 marker" — and never quote it.
 
-Deliberate majors use `chore(release-major)`. Full reasoning and the reset
-procedure: `standards/release.md` § "Never write the breaking-change trailer in
-a Go repo's commit message".
+The release workflow reads this repo's own `.semrelrc`, and there is none, so
+no commit subject maps to a major. Reaching 1.0 is dropping
+`allow-initial-development-versions`, and v1 needs no path suffix. A deliberate
+v2 or later needs a `.semrelrc` mapping `chore(release-major)` to a major, and
+the same release adds `/v2` to the module path.
+
+Recovery from an accidental major is not a history rewrite. Delete the major's
+releases and tags, remote and local, then tag a baseline on `main` above the
+offending commit and push it. Without the baseline the commit stays in the
+analyzed range and the next push cuts the major again.
 
 [GO-2026-5932]: https://pkg.go.dev/vuln/GO-2026-5932
