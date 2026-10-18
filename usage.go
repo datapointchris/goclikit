@@ -180,9 +180,8 @@ func near(typed, name string, distance int) bool {
 // honors the DisableSuggestions and SuggestionsMinimumDistance a consumer set,
 // wherever in the ancestry it set them.
 //
-// Near matches rather than the whole flag set, which is also what Click does:
-// measured 2026-08-11, `indy search --nope` named one of its seven flags. A
-// command with a wide flag surface would otherwise answer a typo with a wall,
+// Near matches rather than the whole flag set, which is also what Click does.
+// A command with a wide flag surface would otherwise answer a typo with a wall,
 // and the pointer above already names the command that prints all of them.
 func flagSuggestions(cmd *cobra.Command, err error) []string {
 	distance, on := suggestionDistance(cmd)

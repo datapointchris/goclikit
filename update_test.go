@@ -138,8 +138,8 @@ func TestSourceErrorIsSurfaced(t *testing.T) {
 	}
 }
 
-// `update` is the fleet's one self-update verb, so the command carries no
-// aliases at all -- `upgrade` in particular must not resolve.
+// `update` is the one self-update verb, so the command carries no aliases at
+// all -- `upgrade` in particular must not resolve.
 func TestDefaultNameAndNoAliases(t *testing.T) {
 	cmd := goclikit.UpdateCommand(config(stubSource{tag: "v1.0.0"}, "v1.0.0"))
 

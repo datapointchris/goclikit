@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// searchRoot returns a root shaped like the tool the fleet measured this on: a
-// leaf carrying several long flags, so a near match can be told from the rest
-// of the flag set rather than from a set of one.
+// searchRoot returns a root shaped like a search tool: a leaf carrying several
+// long flags, so a near match can be told from the rest of the flag set rather
+// than from a set of one.
 func searchRoot() *cobra.Command {
 	root := &cobra.Command{Use: "demo", SilenceErrors: true, SilenceUsage: true}
 	root.SetOut(io.Discard)
