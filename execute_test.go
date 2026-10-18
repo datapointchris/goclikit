@@ -1,6 +1,7 @@
 package goclikit
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -187,6 +188,40 @@ func TestUsageErrorMarksACallersOwnMistake(t *testing.T) {
 func TestUsageErrorPassesNilThrough(t *testing.T) {
 	if err := UsageError(nil); err != nil {
 		t.Errorf("nil became %v", err)
+	}
+}
+
+// Cobra refuses a wrong argument count with a plain error that exits 1 and
+// names neither argument. A short line is told how the command is called, and
+// a bare one gets the help on stderr with stdout left empty.
+func TestARefusedArgumentListIsAUsageErrorSayingHowTheCommandIsCalled(t *testing.T) {
+	answerRoot := func(out, errOut io.Writer) *cobra.Command {
+		root := usageRoot()
+		root.SetOut(out)
+		root.SetErr(errOut)
+		root.AddCommand(&cobra.Command{Use: "answer <key> <n>", Short: "Choose an option", Args: cobra.ExactArgs(2), Run: func(*cobra.Command, []string) {}})
+		return root
+	}
+
+	withArgs(t, "answer", "only-a-key")
+	err := execute(t, answerRoot(io.Discard, io.Discard))
+	if !errors.Is(err, ErrUsage) {
+		t.Fatalf("a short argument list is not ErrUsage: %v", err)
+	}
+	for _, want := range []string{"accepts 2 arg(s), received 1", "Usage: demo answer <key> <n>", "Run 'demo answer --help' for usage."} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message does not carry %q:\n%s", want, err)
+		}
+	}
+
+	var out, errOut bytes.Buffer
+	withArgs(t, "answer")
+	err = execute(t, answerRoot(&out, &errOut))
+	if !errors.Is(err, ErrUsage) || !errors.Is(err, ErrReported) {
+		t.Errorf("a bare call is not both ErrUsage and ErrReported: %v", err)
+	}
+	if !strings.Contains(errOut.String(), "Choose an option") || out.Len() != 0 {
+		t.Errorf("the help belongs on stderr alone; stdout %q, stderr %q", out.String(), errOut.String())
 	}
 }
 

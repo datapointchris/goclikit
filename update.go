@@ -11,10 +11,11 @@ import (
 	"github.com/datapointchris/goselfupdate"
 )
 
-// ErrReported wraps every error [UpdateCommand]'s command returns, marking it as already
-// written to stderr. A program whose main prints the error returned by
-// Execute should skip anything matching this, otherwise the failure is
-// reported twice:
+// ErrReported marks an error as already written to stderr. It wraps every error
+// [UpdateCommand]'s command returns, and the refusal [Execute] returns after
+// printing the help of a command given none of its arguments. A program whose
+// main prints the error returned by Execute should skip anything matching
+// this, otherwise the failure is reported twice:
 //
 //	if err := root.Execute(); err != nil {
 //		if !errors.Is(err, goclikit.ErrReported) {

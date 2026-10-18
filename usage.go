@@ -70,6 +70,54 @@ func explainFlagError(cmd *cobra.Command, err error) error {
 	return explained{err: err, extra: "\n\n" + strings.Join(sections, "\n\n")}
 }
 
+// explainArgs wraps the positional-argument validator of cmd, so a line it
+// refuses comes back marked [ErrUsage] and saying how the command is called.
+//
+// Cobra refuses a wrong argument count with a plain error: `accepts 2 arg(s),
+// received 1` exits 1 and names neither argument. The refusal is classified by
+// where it came from rather than by its message. Validating the positional
+// arguments is all a validator is for, so whatever it refuses is a mistake in
+// how the line was typed.
+//
+// A line giving none of the arguments is answered with the command's help, on
+// stderr: someone who typed the bare command is asking how it is called. A
+// validator that marked its own refusal with [UsageError] chose its words, so
+// it keeps them. Where the CLI lets cobra print the usage after an error,
+// cobra's usage is the explanation, and only the mark is added.
+func explainArgs(cmd *cobra.Command) {
+	validate := cmd.Args
+	if validate == nil {
+		return
+	}
+	cmd.Args = func(cmd *cobra.Command, args []string) error {
+		err := validate(cmd, args)
+		switch {
+		case err == nil:
+			return nil
+		case !cmd.SilenceUsage && !cmd.Root().SilenceUsage:
+			return UsageError(err)
+		case len(args) == 0:
+			return helpInstead(cmd)
+		case errors.Is(err, ErrUsage):
+			return err
+		}
+		return usageError{explained{err: err, extra: "\n\nUsage: " + cmd.UseLine() + "\n" + helpPointer(cmd)}}
+	}
+}
+
+// helpInstead prints cmd's help to stderr and returns a refusal marked both
+// [ErrUsage] and [ErrReported], so the caller exits 2 and prints nothing more.
+// Stdout stays empty, because a caller reading it is owed data or nothing.
+func helpInstead(cmd *cobra.Command) error {
+	out := cmd.OutOrStdout()
+	cmd.SetOut(cmd.ErrOrStderr())
+	defer cmd.SetOut(out)
+	if err := cmd.Help(); err != nil {
+		return UsageError(err)
+	}
+	return usageError{fmt.Errorf("%s was given none of its arguments, so its help is printed: %w", cmd.CommandPath(), ErrReported)}
+}
+
 // explainCommandError adds the help pointer to a command line naming nothing
 // cobra can run.
 //

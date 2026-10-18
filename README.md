@@ -114,24 +114,40 @@ failure of the program as its own exit 1.
 Cobra returns a mistyped line and a failed command as the same kind of error,
 so both exit 1. A script cannot tell "retry with different arguments" from "it
 ran and failed". `Execute` marks the first as `ErrUsage`: an unknown or
-malformed flag, and a word naming no command. The caller selects exit 2, which
-is the shell convention and what Python's argparse does.
+malformed flag, a word naming no command, and positional arguments the
+command's `Args` validator refused. The caller selects exit 2, which is the
+shell convention and what Python's argparse does.
 
 The mark travels in the error graph and the message is left alone. A prefix
 would make a caller printing `error:` emit
 `error: usage error: unknown flag: --nope`.
 
-`Execute` cannot classify everything. An argument-count failure and a custom `Args`
-validator come back indistinguishable from a `RunE` failure without matching on
-message text, which a caller must never have to do. So does a required-flag or
-mutually-exclusive rule a command checks itself. Mark those at the source:
+An argument refusal is told apart by where it came from. `Execute` wraps the
+validator of the command it is about to run, so nothing matches cobra's text.
+That wrapper also says what cobra leaves out:
+
+```text
+$ tool answer only-a-key
+accepts 2 arg(s), received 1
+
+Usage: tool answer <key> <n> [flags]
+Run 'tool answer --help' for usage.
+```
+
+A command given none of the arguments it needs prints its help on stderr
+instead, and returns an error marked `ErrReported` as well, so `main` prints
+nothing more. A validator that marks its own refusal with `UsageError` keeps its
+wording.
+
+`Execute` cannot see a required-flag or mutually-exclusive rule a command checks
+in its `RunE`. Mark that one at the source:
 
 ```go
-Args: func(cmd *cobra.Command, args []string) error {
-    if len(args) != 1 {
-        return goclikit.UsageError(fmt.Errorf("%s takes one id, got %d", cmd.CommandPath(), len(args)))
+RunE: func(cmd *cobra.Command, args []string) error {
+    if all && len(args) > 0 {
+        return goclikit.UsageError(errors.New("--all takes no names"))
     }
-    return nil
+    ...
 },
 ```
 

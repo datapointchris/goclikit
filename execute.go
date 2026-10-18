@@ -10,18 +10,16 @@ import (
 )
 
 // ErrUsage marks a failure caused by how the command was typed rather than by
-// the command running and failing: an unknown or malformed flag, or an unknown
-// subcommand. Select exit code 2 for it, as the shell convention and Python's
-// argparse do, so a caller can tell "you typed it wrong" from "it ran and
-// failed" -- only the former is worth retrying with different arguments.
+// the command running and failing: an unknown or malformed flag, an unknown
+// subcommand, or positional arguments the command's [cobra.Command.Args]
+// validator refused. Select exit code 2 for it, as the shell convention and
+// Python's argparse do, so a caller can tell "you typed it wrong" from "it ran
+// and failed" -- only the former is worth retrying with different arguments.
 //
-// Cobra reports both as ordinary errors, which is what flattens every failure
-// to exit 1 without this.
-//
-// Argument-count and custom [cobra.Command.Args] validation failures are not
-// classified: cobra returns them as plain errors indistinguishable from a
-// RunE failure without matching on message text, which callers must never
-// have to do.
+// Cobra reports all three as ordinary errors, which is what flattens every
+// failure to exit 1 without this. The argument refusal is told apart by
+// [Execute] wrapping the validator of the command it is about to run, never by
+// matching message text, which callers must never have to do.
 var ErrUsage = errors.New("usage error")
 
 // usageError marks err as [ErrUsage] while leaving its message alone.
@@ -41,16 +39,17 @@ func (u usageError) Unwrap() []error { return []error{ErrUsage, u.err} }
 // UsageError marks err as [ErrUsage] so [Execute]'s caller selects exit code 2
 // for it, leaving the message alone.
 //
-// For the mistakes this package cannot detect on its own: an argument-count or
-// custom [cobra.Command.Args] failure, which cobra returns indistinguishably
-// from a RunE failure, and a required-flag or mutually-exclusive-flag rule a
-// command validates itself.
+// For the mistakes this package cannot detect on its own: a required-flag or
+// mutually-exclusive-flag rule a command validates in RunE. An [cobra.Command.Args]
+// validator needs no mark, because [Execute] classifies whatever it refuses. A
+// validator marks its refusal only to keep its own wording, which then reaches
+// the caller unchanged.
 //
-//	Args: func(cmd *cobra.Command, args []string) error {
-//		if len(args) > 1 {
-//			return goclikit.UsageError(fmt.Errorf("unknown command %q", args[0]))
+//	RunE: func(cmd *cobra.Command, args []string) error {
+//		if all && len(names) > 0 {
+//			return goclikit.UsageError(errors.New("--all takes no names"))
 //		}
-//		return nil
+//		...
 //	},
 //
 // Without this a consumer has to declare its own marker type to say the same
@@ -184,6 +183,12 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	// one that needs a run function.
 	if target != nil && isNamespace(target) {
 		giveRunFunction(target)
+	}
+
+	// The resolved command is the one whose arguments cobra validates, so its
+	// validator is the only one wrapped.
+	if target != nil && findErr == nil {
+		explainArgs(target)
 	}
 
 	// Composed with whatever the caller already set rather than replacing it:
