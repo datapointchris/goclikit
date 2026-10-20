@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The defect the annotation exists for. Cobra parses a namespace's flags
-// before it validates the namespace's arguments, so an unknown word followed
-// by a flag only a leaf declares reports the flag and never the word.
+// Cobra parses a namespace's flags before it validates the namespace's
+// arguments, so an unknown word followed by a flag only a leaf declares
+// reports the flag and never the word.
 func TestAWordBeforeAnUnknownFlagIsRefusedOnANamespace(t *testing.T) {
 	for _, c := range []struct {
 		why       string
@@ -49,7 +49,6 @@ func TestAWordBeforeAnUnknownFlagIsRefusedOnANamespace(t *testing.T) {
 	}
 }
 
-// With no word ahead of it, the flag is the mistake, and it is answered as one.
 func TestAnUnknownFlagOnANamespaceWithNoWordIsAFlagError(t *testing.T) {
 	message := messageOf(t, namespacedRoot(), "admin", "--json")
 
@@ -132,7 +131,6 @@ func TestABareNamespaceShowsItsHelp(t *testing.T) {
 	}
 }
 
-// A namespace that does something of its own when bare keeps doing it.
 func TestANamespacesOwnRunFunctionIsKept(t *testing.T) {
 	withArgs(t, "admin", "anything")
 	theirs := errors.New("the namespace's own answer")
@@ -146,9 +144,8 @@ func TestANamespacesOwnRunFunctionIsKept(t *testing.T) {
 	}
 }
 
-// The exported key is the contract, and its value is not read, so a CLI
-// writing the annotation by hand gets the same answer as one calling
-// AsNamespace.
+// handMarkedRoot writes the annotation with an empty value, so this fails if
+// isNamespace starts requiring the "true" AsNamespace writes.
 func TestAHandWrittenNamespaceAnnotationWorksTheSame(t *testing.T) {
 	withArgs(t, "hand", "lst", "--json")
 

@@ -110,8 +110,8 @@ func helpRequested(args []string) bool {
 //
 // The ancestry is walked rather than only the leaf because `completion` owns a
 // subcommand per shell: `tool completion zsh` has leaf name "zsh", and a
-// leaf-only check misses it entirely. A CLI that synced on start hit exactly
-// this, and every shell that sourced its completions paid for it.
+// leaf-only check misses it, so every new shell sourcing the completions would
+// pay for a version check.
 func suppressed(cmd *cobra.Command) bool {
 	for current := cmd; current != nil; current = current.Parent() {
 		if _, built := current.Annotations[updateCommandAnnotation]; built || neverAutoUpdate[current.Name()] {
