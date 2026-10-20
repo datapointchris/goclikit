@@ -48,10 +48,11 @@ paper, and it is the property a feature is checked against before it is added:
   usage errors with its own type was never reached at all. Dropping the
   package then means replacing the constructors with plain errors, which is a
   mechanical edit, not a redesign.
-- **The namespace annotation is what makes refusing a word in `Execute`
-  right.** It is the command declaring that every word left over is a
-  subcommand, which the error's presence never said. Without the annotation,
-  `Execute` refuses nothing, so the inference measured wrong above stays out.
+- **`Execute` refuses a leftover word only on a command carrying the
+  namespace annotation.** The annotation is the command declaring every
+  leftover word a subcommand, which an error's presence never said. An
+  unmarked command is refused nothing, so the inference measured wrong above
+  stays out.
 
 **Why**: eleven CLIs depend on this. If dropping it means editing twenty files
 in each of them, the dependency has stopped being a choice, and a library
@@ -162,7 +163,7 @@ rg -l datapointchris/goclikit ~/tools/*/go.mod ~/webapps/*/cli/go.mod
 ## Never write the breaking-change trailer in a commit message
 
 Those words — either number, colon or not, subject or body — cut a major
-release once this repo is past 0.x, and a major from v1 on is an outage rather
+release once this repo is at v1 or later, and that major is an outage rather
 than a version. On 0.x, `allow-initial-development-versions` cuts them as a
 minor. `commit-analyzer-cz` matches them unanchored against the raw message and
 ORs the result with the configured major rules, so `.semrelrc` cannot stop it

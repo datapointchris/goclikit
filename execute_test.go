@@ -39,10 +39,8 @@ func find(t *testing.T, root *cobra.Command, args ...string) *cobra.Command {
 	return target
 }
 
-// The ancestry is walked rather than only the leaf: `completion` owns a
-// subcommand per shell, so `demo completion zsh` has leaf name "zsh". The
-// shell-completion callback runs on every TAB press, and a check there would
-// add latency to something that must feel instant.
+// `self-update` is UpdateCommand renamed through Options, which no name on the
+// list matches, and `completion zsh` resolves to the leaf "zsh".
 func TestOnlyCommandsAVersionCheckWouldRaceAreSuppressed(t *testing.T) {
 	root := buildRoot()
 	root.InitDefaultCompletionCmd()

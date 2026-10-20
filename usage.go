@@ -86,8 +86,10 @@ func explainFlagError(cmd *cobra.Command, err error) error {
 // cobra's usage is the explanation, and only the mark is added.
 //
 // Cobra's NoArgs calls a word on a command with no subcommands an unknown
-// command, which names a subcommand that command never had. That refusal says
-// the command takes no arguments instead.
+// command, which names a subcommand that command never had. That refusal is
+// recognized by comparing its message with cobra's exact wording, then reworded
+// to say the command takes no arguments. A cobra release that rewords it keeps
+// cobra's sentence here, and the test of the reworded line fails.
 func explainArgs(cmd *cobra.Command) {
 	validate := cmd.Args
 	if validate == nil {

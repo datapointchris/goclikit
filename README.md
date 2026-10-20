@@ -364,12 +364,13 @@ ancestry is matched because `completion` owns a subcommand per shell, and
 
 ## One import, in `main` alone — dropping the package is an edit to one file
 
-Nothing outside `main` needs this package. That is the constraint every feature
-here is designed against. `main` names it in one `AddCommand`, one `Execute`,
-and the two sentinels its exit code reads. A tool that wants to answer a mistake
-its own way edits `main`, and everything it wrote itself still compiles. A
-feature reaching out to call sites, such as a wrapper each command must remember
-or a helper spread across twenty files, would trade that away.
+Nothing outside `main` needs this package, bar the two error constructors at
+the end of this section. That is the constraint every feature here is designed
+against. `main` names it in one `AddCommand`, one `Execute`, and the two
+sentinels its exit code reads. A tool that wants to answer a mistake its own way
+edits `main`, and everything it wrote itself still compiles. A feature reaching
+out to call sites, such as a wrapper each command must remember or a helper
+spread across twenty files, would trade that away.
 
 A feature needing per-command data reads a cobra annotation. A feature needing
 the tool's own logic takes an `Option` on `Execute`. A CLI that wants none of it

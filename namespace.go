@@ -142,8 +142,8 @@ func firstWord(cmd *cobra.Command, args []string) string {
 // ahead of the flag, and returns nil where there is no such word.
 //
 // pflag keeps the words it parsed before the flag it failed on, so the word is
-// still there to name. `tool admin uodate --json` would otherwise read as a
-// missing --json, and the --json was never the mistake: no subcommand was
+// still there to name. `tool admin uodate --json` would otherwise fail with
+// `unknown flag: --json`, and the flag was never the mistake: no subcommand was
 // found to own it.
 func refuseWordBeforeFlag(cmd *cobra.Command) error {
 	if cmd == nil || !isNamespace(cmd) {
