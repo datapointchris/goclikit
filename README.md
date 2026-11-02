@@ -268,9 +268,8 @@ RunE: func(cmd *cobra.Command, args []string) error {
 
 ## Recovery hints — a not-found names the command that finds a real id
 
-An error is read by someone who is stuck right now. It owes what failed, what
-was expected, and the one command that changes the situation. A not-found
-usually gives only the first.
+A not-found usually names what was missing and stops there. A recovery hint
+adds the command that finds a real id.
 
 A tool small enough to list its corpus should list it, since naming a `list`
 command is a worse error than printing the valid values. Recovery hints are for
@@ -323,10 +322,9 @@ redirect decodes to a status and nothing else, and no resource was reached.
 Rewriting it into a resource claim would name a thing the tool does not have,
 and a wrong base URL and a missing id have different remedies.
 
-The hint attaches once, to the command `Execute` resolved before the run.
-Wrapping every `RunE` in the tree would redo that work. Attaching it there also
-reaches a not-found raised before `RunE`, such as in a `PersistentPreRunE`
-resolving a flag, which a `RunE` wrapper cannot see.
+The hint attaches to the command `Execute` resolved before the run, so it also
+reaches a not-found raised before `RunE`, such as one from a
+`PersistentPreRunE` resolving a flag.
 
 A line cobra cannot resolve returns as a usage error before the classifier is
 asked. Any other usage error a classifier claims keeps `ErrUsage` reachable

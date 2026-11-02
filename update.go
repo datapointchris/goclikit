@@ -31,15 +31,13 @@ var ErrReported = errors.New("already reported")
 type Options struct {
 	// Use overrides the command name. Defaults to "update".
 	//
-	// There is deliberately no alias knob. An alias is how a second verb such
-	// as `upgrade` comes to sit beside `update` without anyone choosing it,
-	// and a tool with two self-update verbs leaves its reader to guess which
-	// is the real one.
+	// There is no alias option, so `upgrade` never resolves beside the one
+	// self-update verb and a reader never guesses which is real.
 	Use string
 
-	// SkipChangelog turns off the commits a successful update lists between
-	// the two versions. The list costs one extra request, and is skipped
-	// silently when the source cannot produce one.
+	// SkipChangelog stops a successful update listing the commits between the
+	// two versions. The list costs one extra request, and is skipped silently
+	// when the source cannot produce one.
 	SkipChangelog bool
 }
 

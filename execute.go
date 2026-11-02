@@ -229,7 +229,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 // The arguments returned are what Find left once it had matched every
 // subcommand it could, flags included.
 //
-// The words are always the command line's. The root's parsed flags are empty
+// The words come from os.Args, never root.Flags().Args(): those are empty
 // before cobra runs in a fresh process, and in a test binary that reuses one
 // root they hold the previous run's words.
 //

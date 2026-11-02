@@ -250,8 +250,6 @@ func TestAWordANamespaceRefusesNamesTheNearSubcommands(t *testing.T) {
 	}
 }
 
-// A word naming a real command further down the tree is answered with that
-// command's full path, wherever it sits below the command that refused it.
 func TestAWordNamingADeeperCommandIsNamedByItsPath(t *testing.T) {
 	tree := func() *cobra.Command {
 		run := func(*cobra.Command, []string) {}

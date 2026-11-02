@@ -189,9 +189,8 @@ func TestUsageErrorPassesNilThrough(t *testing.T) {
 	}
 }
 
-// Cobra refuses a wrong argument count with a plain error that exits 1 and
-// names neither argument. A short line is told how the command is called, and
-// a bare one gets the help on stderr with stdout left empty.
+// A bare call gets the help on stderr with stdout left empty, and a word on a
+// command taking none is told so rather than called an unknown command.
 func TestARefusedArgumentListIsAUsageErrorSayingHowTheCommandIsCalled(t *testing.T) {
 	answerRoot := func(out, errOut io.Writer) *cobra.Command {
 		root := usageRoot()
