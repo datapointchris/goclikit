@@ -169,6 +169,13 @@ ancestry, so setting them on the root reaches every command, as it does for
 cobra. One rule then answers a mistyped flag and a mistyped command on the same
 line.
 
+Within those edits, a name is offered only where it keeps more than half of
+the typed letters, in order. `--all` is two edits from `--api` and keeps one
+letter, so it gets no guess. `--lmt` keeps all three in `--limit`, so it does.
+Click and argparse draw the same line with difflib's similarity ratio. Cobra's
+own root validator applies the edits alone, so an unknown root command can
+still be offered a name it shares one letter with.
+
 Only near matches are offered, so a wide flag surface does not answer one typo
 with a wall. Hidden and deprecated flags are never offered. A mistyped shorthand
 gets no guesses, because nearly every long flag sits within two edits of one

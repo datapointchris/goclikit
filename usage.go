@@ -273,11 +273,41 @@ func suggestionDistance(cmd *cobra.Command) (int, bool) {
 	return distance, true
 }
 
-// near reports whether typed is close enough to name to offer it: within
-// distance edits, or a prefix of it. It is the one rule both halves of a
-// mistyped command line are answered by here.
+// near reports whether typed is close enough to name to offer it: a prefix of
+// it, or within distance edits that keep more than half of what was typed. It
+// is the one rule both halves of a mistyped command line are answered by here.
+//
+// The edits alone would offer `--api` for `--all`: two substitutions leave a
+// three-letter word one letter of its own. `--lmt` is two insertions from
+// `--limit` and keeps all three letters, so it is still offered. Click and
+// argparse draw the same line through difflib's similarity ratio.
 func near(typed, name string, distance int) bool {
-	return editDistance(typed, name) <= distance || strings.HasPrefix(strings.ToLower(name), strings.ToLower(typed))
+	if strings.HasPrefix(strings.ToLower(name), strings.ToLower(typed)) {
+		return true
+	}
+	return editDistance(typed, name) <= distance && 2*lettersKept(typed, name) > len([]rune(typed))
+}
+
+// lettersKept is how many letters of typed appear in name in the same order,
+// case-insensitively: the length of their longest common subsequence.
+func lettersKept(typed, name string) int {
+	first := []rune(strings.ToLower(typed))
+	second := []rune(strings.ToLower(name))
+
+	previous := make([]int, len(second)+1)
+	current := make([]int, len(second)+1)
+	for i := 1; i <= len(first); i++ {
+		for j := 1; j <= len(second); j++ {
+			if first[i-1] == second[j-1] {
+				current[j] = previous[j-1] + 1
+			} else {
+				current[j] = max(previous[j], current[j-1])
+			}
+		}
+		previous, current = current, previous
+	}
+
+	return previous[len(second)]
 }
 
 // flagSuggestions names the flags on cmd close enough to what was typed to be

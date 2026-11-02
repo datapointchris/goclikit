@@ -97,6 +97,21 @@ func TestAFlagErrorWithNoNearMatchStillNamesTheNextCommand(t *testing.T) {
 	}
 }
 
+// Someone typing `--all` on a command whose root carries `--api` gets no guess,
+// because two substitutions left one letter of what they typed. `--lmt` keeps
+// every letter in `--limit` and is still answered with it.
+func TestANearFlagKeepsMostOfWhatWasTyped(t *testing.T) {
+	root := searchRoot()
+	root.PersistentFlags().String("api", "", "the server to ask")
+
+	if message := messageOf(t, root, "search", "--all"); strings.Contains(message, "--api") {
+		t.Errorf("--all was answered with --api:\n%s", message)
+	}
+	if message := messageOf(t, searchRoot(), "search", "--lmt"); !strings.Contains(message, "--limit") {
+		t.Errorf("--lmt was not answered with --limit:\n%s", message)
+	}
+}
+
 // A shorthand is one character, so every long flag is within two edits of it
 // and a suggestion list would be the whole flag set.
 func TestAShorthandMistakeIsNotAnsweredWithGuesses(t *testing.T) {
