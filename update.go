@@ -53,6 +53,9 @@ func UpdateCommand(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 
 	var checkOnly bool
 
+	invocation := cfg.Binary + " " + opts.Use
+	checkInvocation := invocation + " --check"
+
 	cmd := &cobra.Command{
 		Use:   opts.Use,
 		Short: fmt.Sprintf("Update %s to the latest release", cfg.Binary),
@@ -60,6 +63,9 @@ func UpdateCommand(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 
 Replaces the running binary with a pre-built release archive, verified against
 the release's published checksums. No Go toolchain required.`, cfg.Binary),
+		Example: fmt.Sprintf("  %-*s  install the latest release in place of this binary\n"+
+			"  %s  report whether a newer release exists, installing nothing",
+			len(checkInvocation), invocation, checkInvocation),
 		Args:        noArgs,
 		Annotations: map[string]string{updateCommandAnnotation: ""},
 		// The command writes its own failures in the ✓/✗ format below, so
