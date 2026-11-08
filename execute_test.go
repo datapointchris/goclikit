@@ -132,6 +132,36 @@ func TestUnknownFlagIsAUsageError(t *testing.T) {
 	}
 }
 
+// cobra refuses a broken flag group or a missing required flag before the run, so both exit as
+// usage errors, and a run that fails with its flags in order stays an ordinary failure.
+func TestAFlagGroupOrRequiredFlagCobraRefusesIsAUsageError(t *testing.T) {
+	root := func() *cobra.Command {
+		root := usageRoot()
+		pick := &cobra.Command{Use: "pick", RunE: func(*cobra.Command, []string) error { return errors.New("it ran and failed") }}
+		pick.Flags().Bool("one", false, "")
+		pick.Flags().Bool("other", false, "")
+		pick.Flags().String("into", "", "")
+		pick.MarkFlagsMutuallyExclusive("one", "other")
+		_ = pick.MarkFlagRequired("into")
+		root.AddCommand(pick)
+		return root
+	}
+	for _, c := range []struct {
+		args  []string
+		usage bool
+	}{
+		{[]string{"pick", "--into", "x", "--one", "--other"}, true},
+		{[]string{"pick", "--one"}, true},
+		{[]string{"pick", "--into", "x", "--one"}, false},
+	} {
+		withArgs(t, c.args...)
+		err := execute(t, root())
+		if err == nil || errors.Is(err, ErrUsage) != c.usage {
+			t.Errorf("%v: %v, want a usage error %t", c.args, err, c.usage)
+		}
+	}
+}
+
 // Classifying an error must not relabel it. A caller printing "error:" in front
 // of a prefixed message says the same thing twice, and every consumer of this
 // package prints the error it gets back. What the classification is allowed to

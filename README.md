@@ -114,9 +114,15 @@ failure of the program as its own exit 1.
 Cobra returns a mistyped line and a failed command as the same kind of error,
 so both exit 1. A script cannot tell "retry with different arguments" from "it
 ran and failed". `Execute` marks the first as `ErrUsage`: an unknown or
-malformed flag, a word naming no command, and positional arguments the
-command's `Args` validator refused. The caller selects exit 2, which is the
-shell convention and what Python's argparse does.
+malformed flag, a word naming no command, positional arguments the
+command's `Args` validator refused, a required flag left unset, and flags that
+break a group `MarkFlagsMutuallyExclusive`, `MarkFlagsRequiredTogether` or
+`MarkFlagsOneRequired` declared. The caller selects exit 2, which is the shell
+convention and what Python's argparse does.
+
+The last two are told apart by asking cobra's own `ValidateRequiredFlags` and
+`ValidateFlagGroups` again once the run has failed. cobra runs both before
+`Run`, so a command that ran never has either refuse it.
 
 The mark travels in the error graph and the message is left alone. A prefix
 would make a caller printing `error:` emit

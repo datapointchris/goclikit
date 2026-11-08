@@ -215,9 +215,22 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 		return usageError{explainCommandError(target, rest, err)}
 	}
 
+	// cobra checks required flags and flag groups before any run and returns its refusal unmarked.
+	// Its own validators asked again give its verdict on the line, which a failed run cannot share:
+	// a run happens only once both have passed.
+	if err != nil && target != nil && flagsRefused(target) {
+		return usageError{err}
+	}
+
 	// After the usage branch, because a line cobra rejected never reached a
 	// resource and cannot have produced a not-found.
 	return hintNotFound(target, opts.notFound, err)
+}
+
+// flagsRefused is cobra's verdict that cmd's parsed flags leave a required one unset, or break a
+// group MarkFlagsMutuallyExclusive, MarkFlagsRequiredTogether or MarkFlagsOneRequired declared.
+func flagsRefused(cmd *cobra.Command) bool {
+	return cmd.ValidateRequiredFlags() != nil || cmd.ValidateFlagGroups() != nil
 }
 
 // resolveTarget asks cobra which command the command line will actually run.
