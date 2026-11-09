@@ -294,6 +294,29 @@ func TestAWordNamingADeeperCommandIsNamedByItsPath(t *testing.T) {
 	}
 }
 
+func TestTheVersionWordIsAnsweredWithTheVersionFlag(t *testing.T) {
+	for _, c := range []struct {
+		why   string
+		word  string
+		tune  func(root *cobra.Command)
+		named []string
+	}{
+		{why: "a root with a version", word: "version", named: []string{"demo --version"}},
+		{why: "any case", word: "Version", named: []string{"demo --version"}},
+		{why: "another word", word: "versions", named: nil},
+		{why: "no version set", word: "version", tune: func(root *cobra.Command) { root.Version = "" }, named: nil},
+		{why: "suggestions off", word: "version", tune: func(root *cobra.Command) { root.DisableSuggestions = true }, named: nil},
+	} {
+		root := &cobra.Command{Use: "demo", Version: "v1.2.3"}
+		if c.tune != nil {
+			c.tune(root)
+		}
+		if got := versionFlagNamed(root, c.word); !slices.Equal(got, c.named) {
+			t.Errorf("%s: named %v, want %v", c.why, got, c.named)
+		}
+	}
+}
+
 // Explaining the failure must not disturb what a caller matches on, which is
 // the whole reason the prose is a suffix rather than a replacement.
 func TestExplainingAFlagErrorKeepsTheErrorMatchable(t *testing.T) {

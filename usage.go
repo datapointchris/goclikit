@@ -151,7 +151,7 @@ func explainCommandError(cmd *cobra.Command, rest []string, err error) error {
 	}
 	extra := ""
 	word := firstWord(cmd, rest)
-	if paths := commandsNamed(cmd, word); len(paths) > 0 {
+	if paths := append(commandsNamed(cmd, word), versionFlagNamed(cmd, word)...); len(paths) > 0 {
 		if len(cmd.SuggestionsFor(word)) > 0 {
 			extra = "\n\t" + strings.Join(paths, "\n\t")
 		} else {
@@ -163,8 +163,8 @@ func explainCommandError(cmd *cobra.Command, rest []string, err error) error {
 
 // UnknownCommand is the error for a word that names none of cmd's subcommands:
 // the word, the subcommands near it, the full path of any command deeper under
-// cmd that it names exactly, and the command that lists every one, marked
-// [ErrUsage].
+// cmd that it names exactly, cmd's --version flag where the word is "version",
+// and the command that lists every one, marked [ErrUsage].
 //
 // Cobra's unknown-command suggestion comes only from its root validator, which
 // runs where the root declares no Args. A command marked with [AsNamespace]
@@ -187,6 +187,7 @@ func UnknownCommand(cmd *cobra.Command, word string) error {
 	refused := fmt.Errorf("unknown command %q for %q", word, cmd.CommandPath())
 	sections := make([]string, 0, 2)
 	names := append(commandSuggestions(cmd, word), commandsNamed(cmd, word)...)
+	names = append(names, versionFlagNamed(cmd, word)...)
 	if len(names) > 0 {
 		sections = append(sections, suggestionBlock(names))
 	}
@@ -224,6 +225,20 @@ func commandsNamed(cmd *cobra.Command, word string) []string {
 	}
 	walk(cmd)
 	return paths
+}
+
+// versionFlagNamed is cmd's --version flag, as the line that runs it, where
+// word is "version" and cmd has a Version set. It is nil otherwise, or where
+// suggestions are off.
+//
+// Cobra gives a command with a Version a --version flag and no version
+// subcommand. A word is compared with subcommands only, so `tool version` is
+// refused with nothing offered while `tool --version` works.
+func versionFlagNamed(cmd *cobra.Command, word string) []string {
+	if _, on := suggestionDistance(cmd); !on || cmd.Version == "" || !strings.EqualFold(word, "version") {
+		return nil
+	}
+	return []string{cmd.CommandPath() + " --version"}
 }
 
 // commandSuggestions names the subcommands of cmd near typed, and any whose

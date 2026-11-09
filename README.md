@@ -212,6 +212,9 @@ across the whole tree would offer commands nobody meant. A namespace refusing a
 word looks below itself the same way. Hidden and deprecated commands are never
 offered, and `DisableSuggestions` turns this off with the rest.
 
+Cobra gives a command with a `Version` a `--version` flag and no `version`
+subcommand. So `tool version` is refused, and the block offers `tool --version`.
+
 A caller's own `FlagErrorFunc` still runs first, and its error type survives
 `errors.As`. The added prose is a suffix, so `errors.Is` and `errors.As` still
 reach whatever cobra, pflag or the caller produced.
