@@ -12,6 +12,13 @@ import (
 // Exported so a CLI can write the annotation itself and keep this package out
 // of its command files. [WithRecoveryHints] is the same thing with the join
 // done for you.
+//
+// [Execute] prints a hint as written and cannot see whether the command it
+// names exists. A hint names a sibling, so it breaks when the sibling is
+// renamed, and nothing in the failing command's own tests notices. The
+// consuming CLI's suite reads this key on every command of its assembled root,
+// walks each hint's command down that root with [cobra.Command.Find], and
+// fails on one that names no command.
 const RecoveryHintsAnnotation = "goclikit.recovery-hints"
 
 // NotFoundFunc reports whether err is this tool's not-found, and the line
@@ -33,7 +40,9 @@ type NotFoundFunc func(err error) (subject string, ok bool)
 // WithRecoveryHints records on cmd the commands a not-found under it should
 // name, and returns cmd so it can be attached inline in an AddCommand list.
 //
-// Each hint is a sentence, a colon, and the command to run.
+// Each hint is a sentence, a colon, and the command to run. The command is
+// printed as written, so the consuming CLI's suite checks it against the tree,
+// as [RecoveryHintsAnnotation] describes.
 //
 // Cobra does not inherit annotations and the lookup takes the nearest ancestor
 // carrying them, so a subcommand acting on a second kind of id names every way

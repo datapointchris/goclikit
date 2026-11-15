@@ -44,8 +44,8 @@ func sentinelClassifier(err error) (string, bool) {
 }
 
 const (
-	searchHint = "Search items by title: demo items search <query>"
-	listHint   = "Completed items are hidden: demo items list --status all"
+	searchHint = "Search items by title: demo projects items search <query>"
+	listHint   = "Completed items are hidden: demo projects items list --status all"
 	groupHint  = "List every project: demo projects list"
 )
 
@@ -54,7 +54,8 @@ const (
 var ran *cobra.Command
 
 // notFoundRoot is three deep, with hints on both the outer group and the inner
-// one, so the ancestry lookup has something to choose between.
+// one, so the ancestry lookup has something to choose between. Every command
+// a hint names is in the tree, as it would be in a consumer's.
 func notFoundRoot(failWith error) *cobra.Command {
 	ran = nil
 	root := &cobra.Command{Use: "demo", SilenceErrors: true, SilenceUsage: true}
@@ -70,11 +71,16 @@ func notFoundRoot(failWith error) *cobra.Command {
 		Args:    cobra.ArbitraryArgs,
 		RunE:    func(c *cobra.Command, _ []string) error { ran = c; return failWith },
 	}
-	items.AddCommand(show)
-	projects.AddCommand(items)
+	search := &cobra.Command{Use: "search <query>", Args: cobra.ExactArgs(1), RunE: noRun}
+	itemsList := &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: noRun}
+	itemsList.Flags().String("status", "open", "")
+	items.AddCommand(show, search, itemsList)
+	projects.AddCommand(items, &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: noRun})
 	root.AddCommand(projects)
 	return root
 }
+
+func noRun(*cobra.Command, []string) error { return nil }
 
 func executeWith(t *testing.T, root *cobra.Command, options ...Option) error {
 	t.Helper()
