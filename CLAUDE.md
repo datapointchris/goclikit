@@ -23,9 +23,11 @@ internal consumers is not automatically right. `go list -m all` names them.
 
 ## The constraint every feature is designed against
 
-**A consuming CLI imports this package in exactly one file.** Two lines in
-`main`: one `AddCommand`, one `Execute`. Deleting both leaves a CLI that still
-compiles and still runs, having lost only what this package added.
+**A consuming CLI imports this package in exactly one file.** `main` names it
+in one `AddCommand`, one `Execute`, and the `ErrReported` and `ErrUsage` checks
+its exit code reads. Dropping it is an edit to those lines in `main` alone.
+Every command file still compiles, and the CLI still runs, having lost only
+what this package added.
 
 That is what makes the dependency optional in practice rather than only on
 paper, and it is the property a feature is checked against before it is added:

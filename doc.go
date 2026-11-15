@@ -28,7 +28,7 @@
 // sibling: [UpdateCommand] returns the subcommand and [Execute] races the
 // version check alongside whatever else was typed.
 //
-// # One import, one line
+// # One import, in main alone
 //
 //	func main() {
 //		root := newRootCommand()
@@ -47,8 +47,8 @@
 //
 // Nothing else in a consuming CLI needs this package. That is deliberate and it
 // is the constraint every feature here is designed against: a tool that wants
-// to answer a mistake its own way deletes two lines, and everything it wrote
-// itself still compiles. A feature reaching out to call sites — an annotation
+// to answer a mistake its own way edits the AddCommand, the Execute and the two
+// sentinel checks in main, and everything it wrote itself still compiles. A feature reaching out to call sites — an annotation
 // helper spread across twenty files, a wrapper each command has to remember —
 // would trade that away, so [AsNamespace] and [WithRecoveryHints] are offered
 // for convenience and never required. A CLI may write either annotation itself.
