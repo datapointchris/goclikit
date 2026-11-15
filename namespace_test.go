@@ -103,7 +103,9 @@ func TestAHandMarkedNamespaceWithNoRunFunctionRefusesAWord(t *testing.T) {
 }
 
 // A consumer's tests drive the tree it builds through cobra's own Execute, and
-// a marked namespace refuses a word there as well.
+// a marked namespace refuses a word there as well. That holds only because
+// AsNamespace installs the run function itself rather than leaving it to
+// Execute, which this test never calls.
 func TestAsNamespaceRefusesAWordUnderCobrasOwnExecute(t *testing.T) {
 	root := namespacedRoot()
 	root.SetArgs([]string{"admin", "uodate"})
@@ -131,6 +133,8 @@ func TestABareNamespaceShowsItsHelp(t *testing.T) {
 	}
 }
 
+// A namespace with a run function of its own answers a leftover word itself,
+// so neither AsNamespace nor Execute installs one over it.
 func TestANamespacesOwnRunFunctionIsKept(t *testing.T) {
 	withArgs(t, "admin", "anything")
 	theirs := errors.New("the namespace's own answer")
@@ -165,6 +169,10 @@ func flaggedNamespacedRoot() *cobra.Command {
 	return root
 }
 
+// The value flags are the root's, inherited by the namespace. Before cobra
+// runs, a persistent flag is not yet merged into the namespace's flag set, so
+// reading only the namespace's own flags would take --format's value for the
+// word.
 func TestFirstWordSkipsEveryFlagAndItsValue(t *testing.T) {
 	root := flaggedNamespacedRoot()
 	admin := find(t, root, "admin")
@@ -213,8 +221,9 @@ func TestAWordWithHelpIsRefusedOnANamespace(t *testing.T) {
 	}
 }
 
-// Help on the namespace itself, on a subcommand it matched, or on a group that
-// is not marked, is still the help that was asked for.
+// Help on the namespace itself, on a subcommand it matched, on a group that is
+// not marked, or with the only word after a --, is still the help that was
+// asked for.
 func TestHelpWithNoUnmatchedWordStillPrints(t *testing.T) {
 	unmarked := func() *cobra.Command {
 		root := searchRoot()

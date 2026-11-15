@@ -100,48 +100,13 @@ in `execute_test.go` sets and restores it; every `Execute` test goes through it.
 the install path resolves the *running* executable, which under test is the
 test binary.
 
-**The not-found tests pin behaviour that is invisible from inside.** Three of
-them exist because the obvious implementation passes without them:
-
-- `TestTheCommandExecuteResolvesIsTheCommandCobraRuns` is the claim the whole
-  design rests on. Resolving before the run and hinting after it is correct
-  only if cobra's own `Find` names the command cobra then executes. It runs
-  five command-line shapes: plain, alias, and a persistent flag in three
-  positions.
-- `TestALooseClassifierCannotTurnAUsageErrorIntoANotFound` needs hints **on the
-  root**, because an unresolvable line resolves to the root and a root with no
-  hints never reaches the branch. Without that the test passes for the wrong
-  reason.
-- `TestAHandWrittenAnnotationWorksTheSame` is what keeps the exported
-  annotation key a contract rather than an implementation detail.
-
-Each gate was proved able to fail before being trusted: starting the ancestry
-walk at the root, dropping the `hintNotFound` call from `Execute`, dropping the
-empty-subject guard, and moving the hint ahead of the usage branch.
-
-**The namespace tests each pin one decision.** Each failed alone under the
-mutation that reverses it:
-
-- Not installing the run function in `AsNamespace` fails
-  `TestAsNamespaceRefusesAWordUnderCobrasOwnExecute`, and not installing it in
-  `Execute` fails `TestAHandMarkedNamespaceWithNoRunFunctionRefusesAWord`.
-  Cobra answers a command with none by printing help and returning nil.
-- Dropping the refusal from the composed `FlagErrorFunc` fails
-  `TestAWordBeforeAnUnknownFlagIsRefusedOnANamespace`.
-- Reading `HasAvailableSubCommands` instead of the annotation fails
-  `TestAnUnmarkedGroupStillReportsTheFlag`.
-- Requiring the value `"true"` fails
-  `TestAHandWrittenNamespaceAnnotationWorksTheSame`, which writes an empty
-  value.
-- Installing over a namespace's own run function fails
-  `TestANamespacesOwnRunFunctionIsKept`.
-- Dropping the help refusal from `Execute` fails
-  `TestAWordWithHelpIsRefusedOnANamespace`. Refusing on an unmarked group, or
-  reading past a `--`, fails `TestHelpWithNoUnmatchedWordStillPrints`.
-- Reading only the namespace's own flags fails
-  `TestFirstWordSkipsEveryFlagAndItsValue`, whose value flag is inherited from
-  the root. Before cobra runs, a persistent flag is not yet merged into the
-  namespace's flag set.
+**The not-found and namespace tests each pin one decision the obvious
+implementation gets wrong.** The comment above each test in `notfound_test.go`
+and `namespace_test.go` names that decision, and a test whose setup looks
+arbitrary says why it is that way there. Read it before simplifying a fixture,
+because several pass for the wrong reason once their setup is tidied. Each
+failed alone under the mutation that reverses its decision before it was
+trusted. A new test of either kind carries its decision in the same place.
 
 ## Releasing
 
