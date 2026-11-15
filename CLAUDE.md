@@ -27,7 +27,8 @@ internal consumers is not automatically right. `go list -m all` names them.
 in one `AddCommand`, one `Execute`, and the `ErrReported` and `ErrUsage` checks
 its exit code reads. Dropping it is an edit to those lines in `main` alone.
 Every command file still compiles, and the CLI still runs, having lost only
-what this package added.
+what this package added. README § "One import, in `main` alone" is the full
+argument a consumer reads, and the constructor exception's reasoning.
 
 That is what makes the dependency optional in practice rather than only on
 paper, and it is the property a feature is checked against before it is added:
@@ -41,15 +42,11 @@ paper, and it is the property a feature is checked against before it is added:
 - A feature that would require a wrapper around each command, or an ordering
   the caller has to get right, is the wrong shape. Say so rather than
   documenting the ordering.
-- **An error constructor is the one exception.** `UsageError` and
-  `UnknownCommand` are values a command returns, and each carries a fact only
-  the command has: that its own check refused the line, and that the word it
-  refused names no subcommand. Inferring either in `Execute` from the error's
-  presence was tried and measured wrong — a flag mistake and an argument-count
-  failure on the same line read as an unknown word, and a consumer marking
-  usage errors with its own type was never reached at all. Dropping the
-  package then means replacing the constructors with plain errors, which is a
-  mechanical edit, not a redesign.
+- **An error constructor is the one exception**, for the reason the README
+  gives. Inferring either fact in `Execute` from the error's presence was
+  tried and measured wrong. A flag mistake and an argument-count failure on
+  the same line read as an unknown word, and a consumer marking usage errors
+  with its own type was never reached at all.
 - **`Execute` refuses a leftover word only on a command carrying the
   namespace annotation.** The annotation is the command declaring every
   leftover word a subcommand, which an error's presence never said. An

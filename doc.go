@@ -45,18 +45,12 @@
 //		}
 //	}
 //
-// Nothing else in a consuming CLI needs this package. That is deliberate and it
-// is the constraint every feature here is designed against: a tool that wants
-// to answer a mistake its own way edits the AddCommand, the Execute and the two
-// sentinel checks in main, and everything it wrote itself still compiles. A feature reaching out to call sites — an annotation
-// helper spread across twenty files, a wrapper each command has to remember —
-// would trade that away, so [AsNamespace] and [WithRecoveryHints] are offered
-// for convenience and never required. A CLI may write either annotation itself.
-//
-// The error constructors, [UsageError] and [UnknownCommand], are the exception
-// by design. Each is a value a command returns rather than a registration or a
-// wrapper, and each carries something only the command knows: that its own
-// check refused the line, and that the word it refused names no subcommand.
+// Nothing else in a consuming CLI needs this package, bar the error values
+// [UsageError] and [UnknownCommand] a command may return. A tool that wants to
+// answer a mistake its own way edits the AddCommand, the Execute and the two
+// sentinel checks in main, and everything it wrote itself still compiles. The
+// README's "One import" section gives the reasoning, and how a command file
+// writes an annotation without importing this package.
 //
 // [cobra]: https://github.com/spf13/cobra
 package goclikit
