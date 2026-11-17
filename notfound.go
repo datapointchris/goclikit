@@ -1,6 +1,7 @@
 package goclikit
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,12 +14,10 @@ import (
 // of its command files. [WithRecoveryHints] is the same thing with the join
 // done for you.
 //
-// [Execute] prints a hint as written and cannot see whether the command it
-// names exists. A hint names a sibling, so it breaks when the sibling is
-// renamed, and nothing in the failing command's own tests notices. The
-// consuming CLI's suite reads this key on every command of its assembled root,
-// walks each hint's command down that root with [cobra.Command.Find], and
-// fails on one that names no command.
+// A hint names a sibling, so it breaks when the sibling is renamed, and nothing
+// in the failing command's own tests notices. [Execute] resolves each hint's
+// command against the assembled root before it prints, and leaves out one that
+// names no command.
 const RecoveryHintsAnnotation = "goclikit.recovery-hints"
 
 // NotFoundFunc reports whether err is this tool's not-found, and the line
@@ -40,9 +39,9 @@ type NotFoundFunc func(err error) (subject string, ok bool)
 // WithRecoveryHints records on cmd the commands a not-found under it should
 // name, and returns cmd so it can be attached inline in an AddCommand list.
 //
-// Each hint is a sentence, a colon, and the command to run. The command is
-// printed as written, so the consuming CLI's suite checks it against the tree,
-// as [RecoveryHintsAnnotation] describes.
+// Each hint is a sentence, a colon, and the command to run, starting with the
+// program name. A hint whose command names nothing in the tree is left out, as
+// [RecoveryHintsAnnotation] describes.
 //
 // Cobra does not inherit annotations and the lookup takes the nearest ancestor
 // carrying them, so a subcommand acting on a second kind of id names every way
@@ -103,9 +102,27 @@ func hintNotFound(cmd *cobra.Command, classify NotFoundFunc, err error) error {
 	if !ok || subject == "" {
 		return err
 	}
-	hints := recoveryHintsFor(cmd)
+	root := cmd.Root()
+	hints := slices.DeleteFunc(recoveryHintsFor(cmd), func(hint string) bool { return !resolves(root, hint) })
 	if len(hints) == 0 {
 		return err
 	}
 	return &notFoundError{subject: subject, hints: hints, cause: err}
+}
+
+// resolves reports whether a hint's command names a command in root's tree. The
+// command starts with the program name, and [cobra.Command.Find] descends the
+// words after it. A word left over is an argument on a leaf, and names no
+// command on any command holding subcommands.
+func resolves(root *cobra.Command, hint string) bool {
+	_, line, ok := strings.Cut(hint, ": ")
+	words := strings.Fields(line)
+	if !ok || len(words) == 0 || words[0] != root.Name() {
+		return false
+	}
+	found, rest, err := root.Find(words[1:])
+	if err != nil {
+		return false
+	}
+	return len(rest) == 0 || strings.HasPrefix(rest[0], "-") || !found.HasSubCommands()
 }

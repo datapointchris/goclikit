@@ -339,41 +339,12 @@ A line cobra cannot resolve returns as a usage error before the classifier is
 asked. Any other usage error a classifier claims keeps `ErrUsage` reachable
 through the wrap, so exit 2 survives a loose classifier.
 
-`Execute` prints a hint as written. It cannot tell whether the command a hint
-names exists. A hint names a sibling, so renaming that sibling breaks it, and
-no test of the failing command notices. Someone already stuck then reads a
-wrong next command as authoritative. Check hints in the CLI's own suite. Build
-the root the binary assembles, read `RecoveryHintsAnnotation` on every command,
-walk each hint's command down that root with `Find`, and fail on one that
-names no command:
-
-```go
-func TestEveryRecoveryHintNamesARealCommand(t *testing.T) {
-    root := newRootCommand()
-    var walk func(*cobra.Command)
-    walk = func(cmd *cobra.Command) {
-        joined := cmd.Annotations[goclikit.RecoveryHintsAnnotation]
-        for _, hint := range strings.Split(joined, "\n") {
-            _, line, ok := strings.Cut(hint, ": ")
-            if !ok {
-                continue
-            }
-            words := strings.Fields(line)[1:] // drop the program name
-            found, rest, err := root.Find(words)
-            if err == nil && len(rest) > 0 && !strings.HasPrefix(rest[0], "-") && found.HasSubCommands() {
-                err = fmt.Errorf("%q names no subcommand of %q", rest[0], found.CommandPath())
-            }
-            if err != nil {
-                t.Errorf("%s: hint %q: %v", cmd.CommandPath(), hint, err)
-            }
-        }
-        for _, sub := range cmd.Commands() {
-            walk(sub)
-        }
-    }
-    walk(root)
-}
-```
+`Execute` resolves each hint's command against the root before it prints. A
+hint names a sibling, so renaming that sibling breaks it, and no test of the
+failing command notices. Someone already stuck would then read a wrong next
+command as authoritative, so a hint naming no command is left out. The command
+starts with the program name, and `Find` descends the words after it. A word
+left over is an argument on a leaf, and names no command anywhere else.
 
 ## `UpdateCommand` — the version check runs beside the command, and never on a TAB press
 

@@ -131,6 +131,22 @@ func TestANotFoundNamesTheSubjectAndTheNearestHints(t *testing.T) {
 	}
 }
 
+// A hint outlives a rename of the command it names. Execute is the one place
+// that sees both the hint and the tree, so the stale hint is the one left out.
+func TestAHintNamingNoCommandIsLeftOut(t *testing.T) {
+	withArgs(t, "projects", "items", "show", "999999")
+	root := notFoundRoot(missing("item 999999 not found"))
+	items, _, _ := root.Find([]string{"projects", "items"})
+	WithRecoveryHints(items, searchHint, "Look it up: demo projects items lookup <query>", listHint)
+
+	err := executeWith(t, root, WithNotFound(apiClassifier))
+
+	want := "item 999999 not found\n  " + searchHint + "\n  " + listHint
+	if err == nil || err.Error() != want {
+		t.Fatalf("got:\n%v\n\nwant:\n%s", err, want)
+	}
+}
+
 // The nearest annotated ancestor replaces the outer one. Accumulating would
 // send someone looking for a missing item after the project list.
 func TestTheOuterGroupsHintsAreNotAdded(t *testing.T) {
@@ -285,12 +301,13 @@ func TestWithRecoveryHintsWritesTheExportedAnnotation(t *testing.T) {
 // out of its command files writes the key itself and must get the same result.
 func TestAHandWrittenAnnotationWorksTheSame(t *testing.T) {
 	withArgs(t, "hand", "show", "1")
+	const hint = "Show another item: demo hand show <id>"
 	root := &cobra.Command{Use: "demo", SilenceErrors: true, SilenceUsage: true}
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
 	group := &cobra.Command{
 		Use:         "hand",
-		Annotations: map[string]string{RecoveryHintsAnnotation: searchHint},
+		Annotations: map[string]string{RecoveryHintsAnnotation: hint},
 	}
 	group.AddCommand(&cobra.Command{
 		Use:  "show",
@@ -300,7 +317,7 @@ func TestAHandWrittenAnnotationWorksTheSame(t *testing.T) {
 	root.AddCommand(group)
 
 	err := executeWith(t, root, WithNotFound(apiClassifier))
-	if want := "item 1 not found\n  " + searchHint; err == nil || err.Error() != want {
+	if want := "item 1 not found\n  " + hint; err == nil || err.Error() != want {
 		t.Fatalf("got:\n%v\n\nwant:\n%s", err, want)
 	}
 }
