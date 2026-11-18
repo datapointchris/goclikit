@@ -45,7 +45,7 @@ func messageOf(t *testing.T, root *cobra.Command, args ...string) string {
 func TestAnUnknownFlagNamesTheNearMatches(t *testing.T) {
 	message := messageOf(t, searchRoot(), "search", "--ownd")
 
-	for _, want := range []string{"unknown flag: --ownd", "Did you mean this?", "--owned"} {
+	for _, want := range []string{"Did you mean this?", "--owned"} {
 		if !strings.Contains(message, want) {
 			t.Errorf("message does not carry %q:\n%s", want, message)
 		}

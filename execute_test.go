@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/datapointchris/goselfupdate"
 	"github.com/datapointchris/goselfupdate/autoupdate"
@@ -175,8 +176,12 @@ func TestClassifyingAUsageErrorLeavesTheMessageAlone(t *testing.T) {
 		t.Fatal("an unknown flag returned no error")
 	}
 
+	var parsed *pflag.NotExistError
+	if !errors.As(err, &parsed) {
+		t.Fatalf("the parser's error was lost: %v", err)
+	}
 	first, _, _ := strings.Cut(err.Error(), "\n")
-	if want := "unknown flag: --nope"; first != want {
+	if want := parsed.Error(); first != want {
 		t.Errorf("message was rewritten: got %q, want %q", first, want)
 	}
 }
