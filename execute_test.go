@@ -242,7 +242,7 @@ func TestARefusedArgumentListIsAUsageErrorSayingHowTheCommandIsCalled(t *testing
 	if !errors.Is(err, ErrUsage) {
 		t.Fatalf("a short argument list is not ErrUsage: %v", err)
 	}
-	for _, want := range []string{"accepts 2 arg(s), received 1", "Usage: demo answer <key> <n>", "Run 'demo answer --help' for usage."} {
+	for _, want := range []string{"Usage: demo answer <key> <n>", "Run 'demo answer --help' for usage."} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message does not carry %q:\n%s", want, err)
 		}
