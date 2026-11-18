@@ -53,7 +53,7 @@ func (u usageError) Unwrap() []error { return []error{ErrUsage, u.err} }
 //	},
 //
 // Without this a consumer has to declare its own marker type to say the same
-// thing, which is how four CLIs here ended up with four copies of it.
+// thing, which leaves each consumer that does with its own copy of it.
 func UsageError(err error) error {
 	if err == nil {
 		return nil

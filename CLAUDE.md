@@ -53,8 +53,8 @@ paper, and it is the property a feature is checked against before it is added:
   unmarked command is refused nothing, so the inference measured wrong above
   stays out.
 
-**Why**: eleven CLIs depend on this. If dropping it means editing twenty files
-in each of them, the dependency has stopped being a choice, and a library
+**Why**: every consumer depends on this, and § Releasing gives the command that
+lists them. If dropping it means editing twenty files in each of them, the dependency has stopped being a choice, and a library
 nobody can leave is one nobody can disagree with.
 
 ## Constraints that must not regress

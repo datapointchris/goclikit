@@ -9,7 +9,7 @@ type settings struct {
 //
 // Variadic rather than fields on a struct parameter, so a CLI wanting none of
 // it calls Execute with three arguments and a feature added here never reaches
-// the ten call sites that did not ask for it.
+// the call sites that did not ask for it.
 type Option func(*settings)
 
 // WithNotFound tells [Execute] how to recognize this tool's not-found, which
