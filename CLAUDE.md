@@ -107,6 +107,21 @@ because several pass for the wrong reason once their setup is tidied. Each
 failed alone under the mutation that reverses its decision before it was
 trusted. A new test of either kind carries its decision in the same place.
 
+**A fix for a fault seen in a consumer is run in that consumer before it
+lands.** The roots this suite assembles in-package are one shape of caller.
+A consumer may mark its errors, wire its root or pass its options differently.
+A fix keyed on one shape once passed every test here and reached one of five
+consumers. In the consumer's checkout, point it at this one and build it:
+
+```bash
+go mod edit -replace github.com/datapointchris/goclikit=<path to this checkout>
+go build ./...
+```
+
+Then run the command line that showed the fault, and drop the `replace` before
+committing in the consumer. Where no consumer can be reached, the commit or PR
+body says so, rather than letting a fixture here stand in for it.
+
 ## Releasing
 
 Push to main. The workflow validates on three operating systems and then tags,
