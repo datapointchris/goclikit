@@ -18,6 +18,7 @@ internal consumers is not automatically right. `go list -m all` names them.
 | `usage.go` | Flag suggestions, the help pointer, the edit distance |
 | `notfound.go` | The recovery-hint annotation and the classifier seam |
 | `namespace.go` | The namespace annotation, and the run function and flag-error refusal `Execute` gives a marked command |
+| `trace.go` | The trace `Execute` extracts from the environment, and `TraceForwardingTransport` |
 | `options.go` | `Option` and `WithNotFound` |
 | `args.go` | `os.Args` without the program name |
 
@@ -42,11 +43,15 @@ paper, and it is the property a feature is checked against before it is added:
 - A feature that would require a wrapper around each command, or an ordering
   the caller has to get right, is the wrong shape. Say so rather than
   documenting the ordering.
-- **An error constructor is the one exception**, for the reason the README
+- **An error constructor is one exception**, for the reason the README
   gives. Inferring either fact in `Execute` from the error's presence was
   tried and measured wrong. A flag mistake and an argument-count failure on
   the same line read as an unknown word, and a consumer marking usage errors
   with its own type was never reached at all.
+- **`TraceForwardingTransport` is the other exception.** A CLI wraps the
+  client for its own API with it, once, where it builds that client. `Execute`
+  never sees that client, and an option wrapping `http.DefaultTransport` would
+  send the trace and baggage to a token endpoint as well.
 - **`Execute` refuses a leftover word only on a command carrying the
   namespace annotation.** The annotation is the command declaring every
   leftover word a subcommand, which an error's presence never said. An
@@ -74,6 +79,13 @@ nobody can leave is one nobody can disagree with.
   TAB press. `suppressed` walks the whole ancestry rather than the leaf,
   because `completion` owns a subcommand per shell and a leaf-only check misses
   `tool completion zsh` entirely.
+- **goclikit records no span and installs no OpenTelemetry SDK.** The
+  transport sets headers with the W3C propagators alone. `otelhttp`'s
+  transport sends the same headers with no SDK installed, at about three times
+  the binary cost, and an SDK with an exporter adds megabytes more.
+- **Baggage passes through whole, and goclikit names none of its members.** A
+  CLI adding a member of its own wraps the transport with its own
+  `RoundTripper`, which sets it on the request's context first.
 - **`go.mod` declares the Go floor and CI tests against it**, reading the
   version from the file rather than repeating it.
 

@@ -3,8 +3,9 @@
 What a [cobra] CLI's `main` calls instead of `rootCmd.Execute()`. It answers
 what a bare cobra tree leaves to each program: the exit code for a typing
 mistake, the flags near a mistyped one, the `--help` pointer, the command that
-recovers from a not-found, and the `update` command. A program that answers
-these itself answers them differently from the next one.
+recovers from a not-found, the trace each API request names, and the `update`
+command. A program that answers these itself answers them differently from the
+next one.
 
 Cobra still parses and runs the tree. goclikit asks cobra which command a line
 names, then shapes the error that comes back. Updating the binary belongs to
@@ -17,8 +18,9 @@ there, and goclikit wires them into a cobra tree.
 go get github.com/datapointchris/goclikit
 ```
 
-It needs the Go version its `go.mod` declares, or newer. It brings cobra and
-goselfupdate with it, and a program's `main` imports both.
+It needs the Go version its `go.mod` declares, or newer. It brings cobra,
+goselfupdate and OpenTelemetry's propagators with it, and a program's `main`
+imports the first two.
 
 ## Starting from scratch
 
@@ -107,6 +109,7 @@ failure of the program as its own exit 1.
 | Which flag did they mean | `Execute` | the resolved command's flags, and the suggestion fields up its ancestry |
 | Why a mistyped subcommand prints help and exits 0 | `AsNamespace`, `UnknownCommand` | the namespace annotation |
 | What a not-found should tell someone to run | `WithRecoveryHints`, `WithNotFound` | the recovery-hints annotation, and the tool's classifier |
+| Which trace an API request is recorded under | `Execute`, `TraceForwardingTransport` | `TRACEPARENT`, `TRACESTATE` and `BAGGAGE`, and each request's context |
 | How the tool updates itself, and says when it is behind | `UpdateCommand`, `Execute` | goselfupdate's config, and the repository's releases |
 
 ## `ErrUsage` — a typing mistake exits 2, and a command that ran and failed exits 1
@@ -346,6 +349,43 @@ command as authoritative, so a hint naming no command is left out. The command
 starts with the program name, and `Find` descends the words after it. A word
 left over is an argument on a leaf, and names no command anywhere else.
 
+## `TraceForwardingTransport` — an API request is recorded under whatever ran the CLI
+
+A CLI started by a traced job inherits `TRACEPARENT`, `TRACESTATE` and
+`BAGGAGE`, OpenTelemetry's environment-variable carrier. `Execute` extracts the
+three into the context every command runs under, with the W3C trace-context and
+baggage propagators. `TraceForwardingTransport` sends that context's trace and
+baggage as each request's `traceparent`, `tracestate` and `baggage` headers.
+The API's span for the request then sits directly under whatever ran the CLI,
+and the baggage reaches it whole.
+
+Wrap the client that calls the CLI's own API, and build each request from the
+command's context:
+
+```go
+httpClient := oauth2.NewClient(ctx, source)
+httpClient.Transport = goclikit.TraceForwardingTransport(httpClient.Transport)
+```
+
+```go
+req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, url, nil)
+```
+
+Leave every other client unwrapped. A token endpoint or a third-party service
+given this transport would receive the trace id and every baggage member.
+oauth2 fetches its tokens through a client of its own, so wrapping the
+transport above leaves the token requests bare. Wrapping `http.DefaultTransport`
+reaches every client that falls back to it.
+
+The CLI records no span of its own. The transport sets the headers with the two
+propagators and needs no OpenTelemetry SDK. `otelhttp`'s transport sends the
+same headers when no SDK is installed, and costs a binary about three times
+what this one does.
+
+With none of the three variables set, the command runs under the context `main`
+passed, and each request goes out as it was built. A variable that is set
+replaces what that context carried.
+
 ## `UpdateCommand` — the version check runs beside the command, and never on a TAB press
 
 ```bash
@@ -385,8 +425,8 @@ ancestry is matched because `completion` owns a subcommand per shell, and
 
 ## One import, in `main` alone — dropping the package is an edit to one file
 
-Nothing outside `main` needs this package, bar the two error constructors at
-the end of this section. That is the constraint every feature here is designed
+Nothing outside `main` needs this package, bar the two error constructors and
+the trace transport at the end of this section. That is the constraint every feature here is designed
 against. `main` names it in one `AddCommand`, one `Execute`, and the two
 sentinels its exit code reads. A tool that wants to answer a mistake its own way
 edits `main`, and everything it wrote itself still compiles. A feature reaching
@@ -418,6 +458,14 @@ and that the word it refused names no subcommand. `Execute` cannot infer either
 from an error's presence, because a flag mistake or an argument-count failure on
 the same line would read as an unknown word. Dropping the package means
 replacing them with plain errors, which is a mechanical edit.
+
+`TraceForwardingTransport` is the other exception. It is called once, where
+the CLI builds the client for its own API, rather than in every command.
+`Execute` never sees that client, and only the CLI knows which of its clients
+calls its own API. An option wrapping `http.DefaultTransport` would send the
+trace to a token endpoint as well. Dropping the package means replacing that
+line, and the extraction `Execute` did, with OpenTelemetry's `envcar` carrier
+and `otelhttp` transport.
 
 ## License
 

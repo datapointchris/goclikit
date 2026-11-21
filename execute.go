@@ -155,6 +155,11 @@ const updateCommandAnnotation = "goclikit.update-command"
 // caller that supplied [WithNotFound] and annotated its resource commands with
 // [WithRecoveryHints]. Without the option nothing about an error changes.
 //
+// Every command runs under ctx carrying the trace and baggage the CLI was
+// started under, read from TRACEPARENT, TRACESTATE and BAGGAGE with the W3C
+// propagators. [TraceForwardingTransport] sends them on each API request. With
+// none of the three set, ctx reaches the command as the caller passed it.
+//
 // Deliberately not a PersistentPreRun: cobra runs only the *closest*
 // PersistentPreRunE in the ancestry, so a hook here would work for a root that
 // has none and silently do nothing for one that does.
@@ -163,6 +168,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	for _, apply := range options {
 		apply(&opts)
 	}
+	ctx = withInheritedTrace(ctx)
 
 	// An unresolvable command line is about to produce a usage error, which is
 	// not the moment for an update notice.

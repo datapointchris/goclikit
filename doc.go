@@ -1,7 +1,7 @@
 // Package goclikit is what a cobra CLI's main calls instead of
 // [cobra.Command.Execute].
 //
-// A bare cobra tree leaves four things to each program, and every program
+// A bare cobra tree leaves five things to each program, and every program
 // that answers them separately answers them differently. This package answers
 // them once:
 //
@@ -22,8 +22,13 @@
 //     still name the command that searches it. [WithRecoveryHints] records
 //     those commands and [Execute] attaches them, with the tool supplying a
 //     [NotFoundFunc] to say what a not-found looks like.
+//   - The trace it was started under. A CLI run by a traced job inherits
+//     TRACEPARENT, TRACESTATE and BAGGAGE. [Execute] extracts them into the
+//     context every command runs under, and [TraceForwardingTransport] sends
+//     them on each API request, so the API's span sits under whatever ran the
+//     CLI.
 //
-// The update command is the fifth thing, and it is the reason
+// The update command is the sixth thing, and it is the reason
 // [github.com/datapointchris/goselfupdate] is a dependency rather than a
 // sibling: [UpdateCommand] returns the subcommand and [Execute] races the
 // version check alongside whatever else was typed.
@@ -46,7 +51,8 @@
 //	}
 //
 // Nothing else in a consuming CLI needs this package, bar the error values
-// [UsageError] and [UnknownCommand] a command may return. A tool that wants to
+// [UsageError] and [UnknownCommand] a command may return, and the
+// [TraceForwardingTransport] its API client is built with. A tool that wants to
 // answer a mistake its own way edits the AddCommand, the Execute and the two
 // sentinel checks in main, and everything it wrote itself still compiles. The
 // README's "One import" section gives the reasoning, and how a command file
