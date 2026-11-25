@@ -112,13 +112,13 @@ func TestHelpBeforeASubcommandShowsThatSubcommandsHelp(t *testing.T) {
 	}
 }
 
+// A line the lookup refused is about to end in a usage error, which is not the
+// moment for a notice. The root it leaves as the target would start a check on
+// its own, so only the lookup's error can suppress this one.
 func TestAnUnresolvableCommandLineIsSuppressed(t *testing.T) {
-	root := &cobra.Command{Use: "demo", Args: cobra.NoArgs}
-	root.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})
-
-	// About to produce a usage error, which is not the moment for a notice.
-	if _, _, err := root.Find([]string{"nonsense"}); err == nil {
-		t.Skip("cobra resolved an unknown command; nothing to assert")
+	refused := errors.New(`unknown command "nonsense" for "demo"`)
+	if !lineStartsNoCheck(buildRoot(), refused, []string{"nonsense"}) {
+		t.Error("a line the lookup refused starts an update check")
 	}
 }
 
