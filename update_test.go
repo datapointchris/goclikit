@@ -104,37 +104,25 @@ func TestSkipChangelogOption(t *testing.T) {
 	}
 }
 
-// A failure is written once, in the ✗ format, and wrapped so a caller's own
-// error printing can suppress the duplicate.
+// A failure is written once, in the ✗ format naming its cause, and wrapped so
+// a caller's own error printing can suppress the duplicate while errors.Is
+// still reaches the source's error.
 func TestFailureIsReportedOnceAndWrapped(t *testing.T) {
-	out, err := run(t, config(stubSource{tag: "v2.0.0"}, "dev"))
-	if err == nil {
-		t.Fatal("expected an error")
-	}
+	sentinel := errors.New("network down")
+
+	out, err := run(t, config(stubSource{err: sentinel}, "v1.0.0"))
 	if !errors.Is(err, goclikit.ErrReported) {
 		t.Errorf("error is not wrapped with ErrReported: %v", err)
 	}
-	if !errors.Is(err, goselfupdate.ErrDevBuild) {
-		t.Errorf("underlying error was lost: %v", err)
+	if !errors.Is(err, sentinel) {
+		t.Errorf("the source error was lost: %v", err)
 	}
 
 	if count := strings.Count(out, "✗"); count != 1 {
 		t.Errorf("failure reported %d times:\n%s", count, out)
 	}
-	if !strings.Contains(out, "✗ tool update failed:") {
-		t.Errorf("unexpected output:\n%s", out)
-	}
-}
-
-func TestSourceErrorIsSurfaced(t *testing.T) {
-	sentinel := errors.New("network down")
-
-	out, err := run(t, config(stubSource{err: sentinel}, "v1.0.0"))
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("got %v, want the source error", err)
-	}
-	if !strings.Contains(out, "network down") {
-		t.Errorf("output does not name the cause:\n%s", out)
+	if !strings.Contains(out, "✗ tool update failed: network down") {
+		t.Errorf("output does not report the failure with its cause:\n%s", out)
 	}
 }
 
