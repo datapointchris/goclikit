@@ -92,6 +92,26 @@ func TestATabPressStartsNoUpdateCheckOnARootTakingArbitraryArguments(t *testing.
 	}
 }
 
+// Before each command had its help flag, Find read `--help` as taking a value.
+// It swallowed "list", resolved the line to the namespaced root, and the root
+// refused "list". `-h admin update` resolved to the root's own `update`.
+func TestHelpBeforeASubcommandShowsThatSubcommandsHelp(t *testing.T) {
+	for _, line := range [][]string{{"--help", "list"}, {"-h", "admin", "update"}} {
+		root := AsNamespace(buildRoot())
+		AsNamespace(find(t, root, "admin"))
+		var helped string
+		root.SetHelpFunc(func(cmd *cobra.Command, _ []string) { helped = cmd.CommandPath() })
+		withArgs(t, line...)
+
+		if err := execute(t, root); err != nil {
+			t.Errorf("%q: %v", line, err)
+		}
+		if want := "demo " + strings.Join(line[1:], " "); helped != want {
+			t.Errorf("%q showed the help of %q, want %q", line, helped, want)
+		}
+	}
+}
+
 func TestAnUnresolvableCommandLineIsSuppressed(t *testing.T) {
 	root := &cobra.Command{Use: "demo", Args: cobra.NoArgs}
 	root.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})

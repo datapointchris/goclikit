@@ -81,7 +81,11 @@ nobody can leave is one nobody can disagree with.
   taking arbitrary arguments resolves the line to itself with no error.
   `suppressed` walks the whole ancestry rather than the leaf, because
   `completion` owns a subcommand per shell and a leaf-only check misses
-  `tool completion zsh` entirely.- **goclikit records no span and installs no OpenTelemetry SDK.** The
+  `tool completion zsh` entirely.
+- **Every command has its help flag before `Find` runs.** cobra adds one only
+  as a command runs, and `Find` reads an unknown flag as taking a value. So
+  `tool --help list` would resolve to the root with "list" swallowed.
+- **goclikit records no span and installs no OpenTelemetry SDK.** The
   transport sets headers with the W3C propagators alone. `otelhttp`'s
   transport sends the same headers with no SDK installed, at about three times
   the binary cost, and an SDK with an exporter adds megabytes more.

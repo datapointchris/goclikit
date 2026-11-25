@@ -290,9 +290,25 @@ func flagsRefused(cmd *cobra.Command) bool {
 // added here first. Otherwise `completion --help` resolves to the root, and a
 // namespaced root refuses "completion" as a word it never matched. Both calls
 // leave a tree that already has the command alone.
+//
+// Cobra gives a command its --help flag only as that command runs, so each
+// command gets it here first as well. Find strips flags as it walks down the
+// tree, and reads a flag it does not know as taking a value. Without these,
+// `tool --help list` swallows "list" as the value of --help and resolves to the
+// root, and `tool -h admin update` resolves to the root's `update`.
 func resolveTarget(root *cobra.Command) (*cobra.Command, []string, error) {
 	args := commandLineArgs()
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd(args...)
+	giveHelpFlags(root)
 	return root.Find(args)
+}
+
+// giveHelpFlags gives cmd and every command under it the --help flag, and
+// leaves one that already has it alone.
+func giveHelpFlags(cmd *cobra.Command) {
+	cmd.InitDefaultHelpFlag()
+	for _, child := range cmd.Commands() {
+		giveHelpFlags(child)
+	}
 }
