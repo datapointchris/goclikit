@@ -41,14 +41,15 @@ func find(t *testing.T, root *cobra.Command, args ...string) *cobra.Command {
 }
 
 // `self-update` is UpdateCommand renamed through Options, which no name on the
-// list matches, and `completion zsh` resolves to the leaf "zsh".
+// list matches, `completion zsh` resolves to the leaf "zsh", and `exec run`
+// sits under a command marked with StartsNoUpdateCheck.
 func TestOnlyCommandsAVersionCheckWouldRaceAreSuppressed(t *testing.T) {
 	root := buildRoot()
 	root.InitDefaultCompletionCmd()
 	root.AddCommand(UpdateCommand(goselfupdate.Config{Binary: "demo"}, Options{Use: "self-update"}))
-	for _, name := range []string{cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd} {
-		root.AddCommand(&cobra.Command{Use: name, Run: func(*cobra.Command, []string) {}})
-	}
+	exec := StartsNoUpdateCheck(&cobra.Command{Use: "exec"})
+	exec.AddCommand(&cobra.Command{Use: "run", Run: func(*cobra.Command, []string) {}})
+	root.AddCommand(exec)
 
 	for _, c := range []struct {
 		args       []string
@@ -61,11 +62,32 @@ func TestOnlyCommandsAVersionCheckWouldRaceAreSuppressed(t *testing.T) {
 		{[]string{"admin", "update"}, true},
 		{[]string{"completion", "zsh"}, true},
 		{[]string{"self-update"}, true},
-		{[]string{cobra.ShellCompRequestCmd}, true},
-		{[]string{cobra.ShellCompNoDescRequestCmd}, true},
+		{[]string{"exec", "run"}, true},
 	} {
 		if got := suppressed(find(t, root, c.args...)); got != c.suppressed {
 			t.Errorf("%v suppressed = %t, want %t", c.args, got, c.suppressed)
+		}
+	}
+}
+
+// Cobra adds the command answering a TAB press only inside ExecuteC, so the
+// line resolves to the root. A root taking arbitrary arguments returns no
+// error there, so only the first word can suppress the check.
+func TestATabPressStartsNoUpdateCheckOnARootTakingArbitraryArguments(t *testing.T) {
+	for _, c := range []struct {
+		args          []string
+		startsNoCheck bool
+	}{
+		{[]string{cobra.ShellCompRequestCmd, "list", ""}, true},
+		{[]string{cobra.ShellCompNoDescRequestCmd, "list", ""}, true},
+		{[]string{"list"}, false},
+	} {
+		root := buildRoot()
+		root.Args = cobra.ArbitraryArgs
+		withArgs(t, c.args...)
+		target, _, err := resolveTarget(root)
+		if got := lineStartsNoCheck(target, err, commandLineArgs()); got != c.startsNoCheck {
+			t.Errorf("%q starts no check = %t, want %t", c.args, got, c.startsNoCheck)
 		}
 	}
 }

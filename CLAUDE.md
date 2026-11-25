@@ -76,10 +76,12 @@ nobody can leave is one nobody can disagree with.
 - **Every wrapper keeps `Unwrap` intact.** `errors.Is` and `errors.As` must
   still reach whatever cobra, pflag, or the consumer produced.
 - **The update check never fires on the completion callback.** It runs on every
-  TAB press. `suppressed` walks the whole ancestry rather than the leaf,
-  because `completion` owns a subcommand per shell and a leaf-only check misses
-  `tool completion zsh` entirely.
-- **goclikit records no span and installs no OpenTelemetry SDK.** The
+  TAB press. `completionRequested` reads the line's first word, because cobra
+  adds `__complete` only inside ExecuteC, after `resolveTarget`, and a root
+  taking arbitrary arguments resolves the line to itself with no error.
+  `suppressed` walks the whole ancestry rather than the leaf, because
+  `completion` owns a subcommand per shell and a leaf-only check misses
+  `tool completion zsh` entirely.- **goclikit records no span and installs no OpenTelemetry SDK.** The
   transport sets headers with the W3C propagators alone. `otelhttp`'s
   transport sends the same headers with no SDK installed, at about three times
   the binary cost, and an SDK with an exporter adds megabytes more.

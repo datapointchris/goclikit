@@ -63,21 +63,29 @@ func UsageError(err error) error {
 
 // neverAutoUpdate names commands that must never trigger an update check.
 //
-// The critical entry is cobra's shell-completion callback: it runs on **every
-// TAB press**, so a check there would fire constantly and add latency to
-// something that must feel instant. `update` is listed because a check racing
-// the update it is about to perform is pointless, and `version` because it is
-// what a script calls to find out what is installed.
+// `update` is listed because a check racing the update it is about to perform
+// is pointless, `version` because it is what a script calls to find out what is
+// installed, and `completion` because a shell's startup runs it.
 //
-// The command UpdateCommand builds carries updateCommandAnnotation as well, so
+// The command UpdateCommand builds carries NoUpdateCheckAnnotation as well, so
 // it is suppressed under whatever name Options gave it.
 var neverAutoUpdate = map[string]bool{
-	"update":                        true,
-	"version":                       true,
-	"completion":                    true,
-	"help":                          true,
-	cobra.ShellCompRequestCmd:       true,
-	cobra.ShellCompNoDescRequestCmd: true,
+	"update":     true,
+	"version":    true,
+	"completion": true,
+	"help":       true,
+}
+
+// completionRequested reports whether the command line is cobra's
+// shell-completion request. A shell sends one on every TAB press, so a check
+// there would add latency to something that must feel instant.
+//
+// The first word says so, and the target cannot. Cobra adds the command that
+// answers the request only inside ExecuteC, after resolveTarget, so Find
+// resolves the line to the root. A root taking arbitrary arguments then returns
+// no error that would suppress the check either.
+func completionRequested(args []string) bool {
+	return len(args) > 0 && (args[0] == cobra.ShellCompRequestCmd || args[0] == cobra.ShellCompNoDescRequestCmd)
 }
 
 // helpRequested reports whether the command line asks for help rather than for
@@ -114,15 +122,44 @@ func helpRequested(args []string) bool {
 // pay for a version check.
 func suppressed(cmd *cobra.Command) bool {
 	for current := cmd; current != nil; current = current.Parent() {
-		if _, built := current.Annotations[updateCommandAnnotation]; built || neverAutoUpdate[current.Name()] {
+		if _, marked := current.Annotations[NoUpdateCheckAnnotation]; marked || neverAutoUpdate[current.Name()] {
 			return true
 		}
 	}
 	return false
 }
 
-// updateCommandAnnotation marks the command UpdateCommand built.
-const updateCommandAnnotation = "goclikit.update-command"
+// lineStartsNoCheck reports whether a command line, resolved to target, starts
+// no update check.
+//
+// An unresolvable command line is about to produce a usage error, which is not
+// the moment for an update notice.
+func lineStartsNoCheck(target *cobra.Command, findErr error, args []string) bool {
+	return findErr != nil || target == nil || suppressed(target) || helpRequested(args) || completionRequested(args)
+}
+
+// NoUpdateCheckAnnotation is the [cobra.Command] annotation marking a command
+// that starts no update check, nor does anything nested under it.
+//
+// It is for a command that ends the process before [Execute] returns, such as
+// one that execs another program. autoupdate stamps its state before the
+// request, so a check that the exec cuts off spends the interval and prints no
+// notice. The command [UpdateCommand] builds carries it too.
+//
+// Its presence marks the command and its value is not read.
+// [StartsNoUpdateCheck] writes it. Exported so a CLI can write the annotation
+// itself and keep this package out of its command files.
+const NoUpdateCheckAnnotation = "goclikit.no-update-check"
+
+// StartsNoUpdateCheck marks cmd with [NoUpdateCheckAnnotation], and returns cmd
+// so it can be attached inline in an AddCommand list.
+func StartsNoUpdateCheck(cmd *cobra.Command) *cobra.Command {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[NoUpdateCheckAnnotation] = ""
+	return cmd
+}
 
 // Execute runs root with an update check racing alongside it.
 //
@@ -170,11 +207,8 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config,
 	}
 	ctx = withInheritedTrace(ctx)
 
-	// An unresolvable command line is about to produce a usage error, which is
-	// not the moment for an update notice.
 	target, rest, findErr := resolveTarget(root)
-	config.Suppress = config.Suppress || findErr != nil || target == nil ||
-		suppressed(target) || helpRequested(commandLineArgs())
+	config.Suppress = config.Suppress || lineStartsNoCheck(target, findErr, commandLineArgs())
 
 	// Before the run, because cobra prints the help and returns nil, which
 	// leaves nothing afterwards to refuse.

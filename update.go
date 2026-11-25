@@ -67,7 +67,7 @@ the release's published checksums. No Go toolchain required.`, cfg.Binary),
 			"  %s  report whether a newer release exists, installing nothing",
 			len(checkInvocation), invocation, checkInvocation),
 		Args:        noArgs,
-		Annotations: map[string]string{updateCommandAnnotation: ""},
+		Annotations: map[string]string{NoUpdateCheckAnnotation: ""},
 		// The command writes its own failures in the ✓/✗ format below, so
 		// neither cobra nor the caller's main should print them again.
 		SilenceErrors: true,

@@ -110,7 +110,7 @@ failure of the program as its own exit 1.
 | Why a mistyped subcommand prints help and exits 0 | `AsNamespace`, `UnknownCommand` | the namespace annotation |
 | What a not-found should tell someone to run | `WithRecoveryHints`, `WithNotFound` | the recovery-hints annotation, and the tool's classifier |
 | Which trace an API request is recorded under | `Execute`, `TraceForwardingTransport` | `TRACEPARENT`, `TRACESTATE` and `BAGGAGE`, and each request's context |
-| How the tool updates itself, and says when it is behind | `UpdateCommand`, `Execute` | goselfupdate's config, and the repository's releases |
+| How the tool updates itself, and says when it is behind | `UpdateCommand`, `Execute`, `StartsNoUpdateCheck` | goselfupdate's config, the repository's releases, and the no-update-check annotation |
 
 ## `ErrUsage` — a typing mistake exits 2, and a command that ran and failed exits 1
 
@@ -416,12 +416,22 @@ it. One that finishes first waits for the check, bounded by
 
 `Execute` also never checks on a command named `update`, `version`,
 `completion` or `help`, on the command `UpdateCommand` built under whatever
-name `Options` gave it, on anything nested under one, on cobra's
-shell-completion callback, on a line carrying `--help` or `-h`, or on a line
-cobra cannot resolve. The completion callback runs on every TAB press, so a
-check there would add latency to something that must feel instant. The whole
+name `Options` gave it, on a command marked with `StartsNoUpdateCheck`, on
+anything nested under one, on cobra's shell-completion callback, on a line
+carrying `--help` or `-h`, or on a line cobra cannot resolve. The completion
+callback runs on every TAB press, so a check there would add latency to
+something that must feel instant. It is read from the line's first word,
+because cobra adds the command answering it only once the line runs. The whole
 ancestry is matched because `completion` owns a subcommand per shell, and
 `tool completion zsh` has the leaf name `zsh`.
+
+Mark a command that ends the process before `Execute` returns, such as one that
+execs another program. The check stamps its state before its request, so an
+exec that cuts the request off spends the interval and prints no notice:
+
+```go
+root.AddCommand(goclikit.StartsNoUpdateCheck(tuiCmd))
+```
 
 ## One import, in `main` alone — dropping the package is an edit to one file
 
@@ -438,18 +448,19 @@ the tool's own logic takes an `Option` on `Execute`. A CLI that wants none of it
 calls `Execute` with three arguments, and a feature added later never reaches a
 call site that did not ask for it.
 
-`AsNamespace` and `WithRecoveryHints` are conveniences, never requirements. The
-contract is the annotation, so a command file can write the key itself and
-never import this package:
+`AsNamespace`, `StartsNoUpdateCheck` and `WithRecoveryHints` are conveniences,
+never requirements. The contract is the annotation, so a command file can write
+the key itself and never import this package:
 
 ```go
 admin.Annotations = map[string]string{"goclikit.namespace": ""}
+tui.Annotations = map[string]string{"goclikit.no-update-check": ""}
 items.Annotations = map[string]string{"goclikit.recovery-hints": strings.Join(hints, "\n")}
 ```
 
-The exported `NamespaceAnnotation` and `RecoveryHintsAnnotation` hold these
-keys. The namespace annotation's value is not read, and its presence marks the
-command.
+The exported `NamespaceAnnotation`, `NoUpdateCheckAnnotation` and
+`RecoveryHintsAnnotation` hold these keys. The namespace and no-update-check
+annotations' values are not read, and each one's presence marks the command.
 
 The error constructors, `UsageError` and `UnknownCommand`, are the exception.
 Each is a value a command returns rather than a wrapper it must remember, and
